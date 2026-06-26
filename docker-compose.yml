@@ -1,0 +1,55 @@
+# =============================================================================
+# Dexa WFH Attendance - MySQL 8 (development & deployment)
+# =============================================================================
+#
+# USAGE
+# -----
+#   1. (Optional) Copy env defaults and adjust for your environment:
+#        cp .env.example .env
+#      All MYSQL_* variables below fall back to sane defaults if no .env exists.
+#
+#   2. Start MySQL in the background:
+#        docker compose up -d
+#
+#   3. Check it is healthy (wait until STATUS shows "healthy"):
+#        docker compose ps
+#
+#   4. Connect from the backend using these values (see backend/.env):
+#        DB_HOST=localhost  DB_PORT=${MYSQL_PORT}  DB_USER=${MYSQL_USER}
+#        DB_PASSWORD=${MYSQL_PASSWORD}  DB_NAME=${MYSQL_DATABASE}
+#
+#   5. Open a SQL shell inside the container:
+#        docker compose exec mysql mysql -u${MYSQL_USER} -p${MYSQL_PASSWORD} ${MYSQL_DATABASE}
+#
+#   6. Stop (keep data):           docker compose down
+#      Stop AND wipe the database:  docker compose down -v
+#
+# DEPLOYMENT
+# ----------
+#   - Always override the default passwords via a real .env file (never commit it).
+#   - Data persists in the named volume `dexa_mysql_data` across restarts.
+#   - To bind to a non-default host port (e.g. 3307) set MYSQL_PORT=3307 in .env.
+# =============================================================================
+
+services:
+    mysql:
+        image: mysql:8.0
+        container_name: dexa-wfh-mysql
+        restart: unless-stopped
+        environment:
+            MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+            MYSQL_DATABASE: ${MYSQL_DATABASE:-dexa_wfh}
+            MYSQL_USER: ${MYSQL_USER:-dexa}
+            MYSQL_PASSWORD: ${MYSQL_PASSWORD:-dexa_password}
+        ports:
+            - "${MYSQL_PORT:-3306}:3306"
+        volumes:
+            - dexa_mysql_data:/var/lib/mysql
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+volumes:
+    dexa_mysql_data:
