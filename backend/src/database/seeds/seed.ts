@@ -1,4 +1,6 @@
 import * as bcrypt from 'bcrypt';
+import { copyFileSync, mkdirSync } from 'fs';
+import { dirname, join } from 'path';
 import { AppDataSource } from '../data-source';
 import { UserRole } from '../../common/enums/app.enum';
 import { AttendanceType } from '../../attendances/enums/attendance.enum';
@@ -10,6 +12,14 @@ const BCRYPT_ROUNDS = 10;
 const ADMIN_EMAIL = 'admin@dexa.com';
 const ADMIN_PASSWORD = 'Admin123';
 const EMPLOYEE_PASSWORD = 'Employee123';
+
+// Sample attendance photo: committed asset copied into the uploads folder so
+// seeded rows reference a real, servable image.
+const UPLOAD_DIR = process.env.UPLOAD_DIR ?? 'uploads';
+const SAMPLE_FILENAME = 'seed-sample.jpg';
+const SAMPLE_PHOTO_PATH = `${UPLOAD_DIR}/attendances/${SAMPLE_FILENAME}`;
+const SAMPLE_ASSET_SRC = join(__dirname, 'assets', SAMPLE_FILENAME);
+const SAMPLE_PHOTO_DEST = join(process.cwd(), SAMPLE_PHOTO_PATH);
 
 interface EmployeeSeed {
 	employeeNumber: string;
@@ -74,7 +84,19 @@ function checkInAt(daysAgo: number): Date {
 	return date;
 }
 
+/**
+ * Copies the committed sample photo into the uploads folder. Runs on every seed
+ * (even when data already exists) so the served image is always present.
+ */
+function ensureSampleAsset(): void {
+	mkdirSync(dirname(SAMPLE_PHOTO_DEST), { recursive: true });
+	copyFileSync(SAMPLE_ASSET_SRC, SAMPLE_PHOTO_DEST);
+	console.log(`Ensured sample photo at ${SAMPLE_PHOTO_PATH}`);
+}
+
 async function seed(): Promise<void> {
+	ensureSampleAsset();
+
 	const dataSource = await AppDataSource.initialize();
 
 	try {
@@ -135,7 +157,7 @@ async function seed(): Promise<void> {
 					employeeId: employee.id,
 					attendanceDate: dateString(daysAgo),
 					checkedInAt: checkInAt(daysAgo),
-					photoPath: 'uploads/attendances/seed-sample.jpg',
+					photoPath: SAMPLE_PHOTO_PATH,
 					type: AttendanceType.CLOCK_IN,
 					latitude: -6.2087634,
 					longitude: 106.845599,
