@@ -43,8 +43,22 @@ Karena keduanya berbagi data, dibuat **1 backend dengan role-based access** (`EM
 
 ## 2. Keputusan Arsitektur (FINAL)
 
-- **Pola:** Monolith Modular NestJS (Opsi A) — dipecah menjadi modul independen (`auth`, `users`, `employees`, `attendances`) yang bersih & siap dipisah menjadi microservice bila perlu. Ini memenuhi "microservices concept" secara modular tanpa kompleksitas message broker.
-- **Alasan:** Sesuai timeline 3–5 hari, mengurangi risiko, tetap rapi & profesional.
+- **Tujuan akhir (END GOAL): deploy sebagai MICROSERVICES**, bukan monolith. Sistem
+  akhirnya terdiri dari beberapa service independen yang dapat dideploy & diskalakan
+  terpisah. Monolith modular hanyalah **tahap antara** menuju ke sana.
+- **Strategi:** mulai sebagai **Monolith Modular NestJS** dengan modul yang benar-benar
+  independen (`auth`, `users`, `employees`, `attendances`), lalu **diekstrak menjadi
+  service terpisah**. Setiap modul dirancang sejak awal agar siap dipecah.
+- **Prinsip agar siap diekstrak menjadi service:**
+  - Batas modul tegas; tidak ada logika bisnis yang bocor lintas modul.
+  - Komunikasi lintas modul lewat interface/service yang jelas (kelak jadi RPC/message
+    broker), bukan akses langsung ke internal modul lain.
+  - Relasi entity lintas modul (`User`↔`Employee`↔`Attendance` FK) diperlakukan sebagai
+    **kemudahan fase monolith**; saat dipecah menjadi referensi antar-service via ID
+    (tanpa FK DB lintas-service), tiap service punya DB/koneksi sendiri.
+  - Konfigurasi DB & wiring dibuat per-modul agar mudah dipindah ke service masing-masing.
+- **Alasan bertahap:** sesuai timeline 3–5 hari — mengurangi risiko, tetap rapi &
+  profesional, sambil menjaga jalur ekstraksi ke microservices tetap terbuka.
 
 ---
 
@@ -238,10 +252,16 @@ Konvensi:
 - [x] Generate & jalankan migration. (`InitSchema` — 3 tabel + FK; applied)
 - [x] Seeder: 1 akun HRD admin + beberapa karyawan + sample absensi. (1 admin + 4 karyawan + 6 absensi; idempotent)
 
-### Tahap 3 — Modul Auth
-- [ ] `AuthService.login` (validasi user, bcrypt compare, sign JWT).
-- [ ] `JwtStrategy` + `JwtAuthGuard`.
-- [ ] Endpoint `login` & `me`.
+### Tahap 3 — Modul Auth ✅
+- [x] `AuthService.login` (validasi user, bcrypt compare, sign JWT). (+ `UsersService` & `UsersModule`, pesan error seragam)
+- [x] `JwtStrategy` + `JwtAuthGuard`. (strategy verifikasi token + cek user masih ada; `@CurrentUser()` decorator)
+- [x] Endpoint `login` & `me`. (teruji: login valid/invalid, me dengan/tanpa token)
+- [x] **Swagger di-pull-forward dari Tahap 6** untuk uji interaktif `/api/docs` (lihat Tahap 6).
+- [x] Hapus boilerplate scaffold (`AppController`/`AppService` "Hello World").
+- [x] Struktur test disiapkan: `configureApp` dipakai bersama `main.ts` & test;
+      unit co-located (`src/auth/auth.service.spec.ts`), e2e per-domain
+      (`test/auth/auth.e2e-spec.ts`) + helper `test/utils/create-test-app.ts`.
+      Lulus: unit 3/3, e2e 5/5.
 
 ### Tahap 4 — Modul Employees (HRD only)
 - [ ] DTO `CreateEmployeeDto`, `UpdateEmployeeDto` + validasi.
@@ -256,9 +276,11 @@ Konvensi:
 - [ ] `GET /attendances` + `GET /attendances/:id` (HRD view-only).
 - [ ] Static serve folder `/uploads`.
 
-### Tahap 6 — Dokumentasi Backend
-- [ ] Setup Swagger di `/api/docs`.
-- [ ] Anotasi DTO & endpoint.
+### Tahap 6 — Dokumentasi Backend (sebagian — di-pull-forward ke Tahap 3)
+- [x] Setup Swagger di `/api/docs`. (`swagger.config.ts`; bearer auth + persistAuthorization;
+      server kosong karena prefix `/api/v1` sudah ikut di path operasi)
+- [~] Anotasi DTO & endpoint. (auth selesai: `LoginDto`, `@ApiOperation`, `@ApiBearerAuth`;
+      endpoint employees & attendances dianotasi saat modulnya dibuat di Tahap 4–5)
 
 ### Tahap 7 — Frontend Fondasi
 - [ ] Setup Tailwind/MUI, React Router, Axios instance + interceptor.
