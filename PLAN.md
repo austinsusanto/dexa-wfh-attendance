@@ -270,12 +270,13 @@ Konvensi:
 - [x] Pagination + search. (reusable `PaginationQueryDto`/`PaginatedResult`; search LIKE multi-kolom)
 - [x] Tests: unit `employees.service.spec` + e2e `test/employees` (lulus unit 7/7, e2e 10/10).
 
-### Tahap 5 — Modul Attendances
-- [ ] Konfigurasi Multer (storage, filename, filter jpg/png, limit 5MB).
-- [ ] `POST /attendances` (EMPLOYEE) — set timestamp server, cek double clock-in.
-- [ ] `GET /attendances/me` (EMPLOYEE).
-- [ ] `GET /attendances` + `GET /attendances/:id` (HRD view-only).
-- [ ] Static serve folder `/uploads`.
+### Tahap 5 — Modul Attendances ✅
+- [x] Konfigurasi Multer (storage, filename, filter jpg/png, limit 5MB). (`attendance-upload.config.ts`; via `MulterModule.registerAsync`)
+- [x] `POST /attendances` (EMPLOYEE) — set timestamp server, cek double clock-in. (`checked_in_at`/`attendance_date` dari server; 409 double + hapus file orphan)
+- [x] `GET /attendances/me` (EMPLOYEE). (pagination + filter `from`/`to`)
+- [x] `GET /attendances` + `GET /attendances/:id` (HRD view-only). (list HRD-only + filter; detail HRD atau pemilik, employee lain → 403)
+- [x] Static serve folder `/uploads`. (`useStaticAssets`, di luar prefix `/api/v1`)
+- [x] Tests: unit `attendances.service.spec` + e2e `test/attendances` (lulus unit 12/12, e2e 17/17).
 
 ### Tahap 6 — Dokumentasi Backend (sebagian — di-pull-forward ke Tahap 3)
 - [x] Setup Swagger di `/api/docs`. (`swagger.config.ts`; bearer auth + persistAuthorization;

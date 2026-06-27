@@ -6,6 +6,7 @@ import { AppConfig } from './config/config.types';
 import { buildTypeOrmOptions } from './config/typeorm.config';
 import { AuthModule } from './auth/auth.module';
 import { EmployeesModule } from './employees/employees.module';
+import { AttendancesModule } from './attendances/attendances.module';
 
 @Module({
 	imports: [
@@ -21,6 +22,7 @@ import { EmployeesModule } from './employees/employees.module';
 		}),
 		AuthModule,
 		EmployeesModule,
+		AttendancesModule,
 	],
 })
 export class AppModule {}
