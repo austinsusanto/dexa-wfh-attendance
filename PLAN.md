@@ -109,17 +109,17 @@ dexa-wfh-attendance/
 ### Tabel `users`
 | Kolom | Tipe | Keterangan |
 |---|---|---|
-| id | BIGINT PK AUTO_INCREMENT | |
+| id | INT PK AUTO_INCREMENT | |
 | email | VARCHAR(150) UNIQUE | dipakai login |
 | password | VARCHAR(255) | bcrypt hash |
 | role | ENUM('EMPLOYEE','HRD_ADMIN') | role-based access |
-| employee_id | BIGINT FK → employees.id NULL | admin bisa tanpa employee |
+| employee_id | INT FK → employees.id NULL | admin bisa tanpa employee |
 | created_at / updated_at | TIMESTAMP | |
 
 ### Tabel `employees`
 | Kolom | Tipe | Keterangan |
 |---|---|---|
-| id | BIGINT PK AUTO_INCREMENT | |
+| id | INT PK AUTO_INCREMENT | |
 | employee_number | VARCHAR(30) UNIQUE | NIK / NIP |
 | full_name | VARCHAR(150) | |
 | position | VARCHAR(100) | jabatan |
@@ -132,8 +132,8 @@ dexa-wfh-attendance/
 ### Tabel `attendances`
 | Kolom | Tipe | Keterangan |
 |---|---|---|
-| id | BIGINT PK AUTO_INCREMENT | |
-| employee_id | BIGINT FK → employees.id | |
+| id | INT PK AUTO_INCREMENT | |
+| employee_id | INT FK → employees.id | |
 | attendance_date | DATE | untuk query/filter & unique check |
 | checked_in_at | TIMESTAMP | **diisi server**, bukan dari client |
 | photo_path | VARCHAR(255) | path foto bukti WFH |
@@ -233,10 +233,10 @@ Konvensi:
 - [x] Setup TypeORM datasource + koneksi. (`typeorm.config.ts` runtime + `database/data-source.ts` untuk CLI migrasi)
 - [x] Common: response interceptor (envelope), exception filter, `@Roles` decorator, `RolesGuard`, `JwtAuthGuard`. (+ `@ResponseMessage`, enum `UserRole`, tipe `ApiResponse`/`JwtPayload`)
 
-### Tahap 2 — Entity & Database
-- [ ] Buat entity `User`, `Employee`, `Attendance` + relasi.
-- [ ] Generate & jalankan migration.
-- [ ] Seeder: 1 akun HRD admin + beberapa karyawan + sample absensi.
+### Tahap 2 — Entity & Database ✅
+- [x] Buat entity `User`, `Employee`, `Attendance` + relasi. (PK `INT`; password `select:false`; unique index `(employee_id, attendance_date, type)`; transformer numerik untuk lat/long)
+- [x] Generate & jalankan migration. (`InitSchema` — 3 tabel + FK; applied)
+- [x] Seeder: 1 akun HRD admin + beberapa karyawan + sample absensi. (1 admin + 4 karyawan + 6 absensi; idempotent)
 
 ### Tahap 3 — Modul Auth
 - [ ] `AuthService.login` (validasi user, bcrypt compare, sign JWT).

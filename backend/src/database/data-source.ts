@@ -6,8 +6,7 @@ import { DataSource } from 'typeorm';
 loadEnv();
 
 /**
- * Standalone DataSource used by the TypeORM CLI for generating and running
- * migrations. The NestJS runtime uses `buildTypeOrmOptions` instead.
+ * Standalone DataSource used by the TypeORM CLI for generating and running migrations.
  */
 export const AppDataSource = new DataSource({
 	type: 'mysql',
@@ -21,5 +20,3 @@ export const AppDataSource = new DataSource({
 	synchronize: false,
 	timezone: 'Z',
 });
-
-export default AppDataSource;
