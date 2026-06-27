@@ -263,11 +263,12 @@ Konvensi:
       (`test/auth/auth.e2e-spec.ts`) + helper `test/utils/create-test-app.ts`.
       Lulus: unit 3/3, e2e 5/5.
 
-### Tahap 4 — Modul Employees (HRD only)
-- [ ] DTO `CreateEmployeeDto`, `UpdateEmployeeDto` + validasi.
-- [ ] Service CRUD (+ buat user EMPLOYEE saat create).
-- [ ] Controller dengan `@Roles('HRD_ADMIN')`.
-- [ ] Pagination + search.
+### Tahap 4 — Modul Employees (HRD only) ✅
+- [x] DTO `CreateEmployeeDto`, `UpdateEmployeeDto` (+ `EmployeeQueryDto`) + validasi. (`UpdateEmployeeDto` via PartialType+OmitType; email & password immutable di update)
+- [x] Service CRUD (+ buat user EMPLOYEE saat create via `UsersService`, cek duplikat → 409). (soft delete `is_active=false`)
+- [x] Controller dengan `@Roles('HRD_ADMIN')` (+ `JwtAuthGuard`+`RolesGuard` di level class). (teruji: 401/403/404/409/400)
+- [x] Pagination + search. (reusable `PaginationQueryDto`/`PaginatedResult`; search LIKE multi-kolom)
+- [x] Tests: unit `employees.service.spec` + e2e `test/employees` (lulus unit 7/7, e2e 10/10).
 
 ### Tahap 5 — Modul Attendances
 - [ ] Konfigurasi Multer (storage, filename, filter jpg/png, limit 5MB).

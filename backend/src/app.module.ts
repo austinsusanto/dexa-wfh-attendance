@@ -5,6 +5,7 @@ import configuration, { validateEnv } from './config/configuration';
 import { AppConfig } from './config/config.types';
 import { buildTypeOrmOptions } from './config/typeorm.config';
 import { AuthModule } from './auth/auth.module';
+import { EmployeesModule } from './employees/employees.module';
 
 @Module({
 	imports: [
@@ -19,6 +20,7 @@ import { AuthModule } from './auth/auth.module';
 				buildTypeOrmOptions(configService),
 		}),
 		AuthModule,
+		EmployeesModule,
 	],
 })
 export class AppModule {}
