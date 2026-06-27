@@ -7,6 +7,27 @@
 
 ---
 
+## 0. Konvensi Kode (WAJIB diikuti di semua kode)
+
+Aturan ini **mengikat untuk seluruh kode** (backend & frontend) yang dibuat ke depan:
+
+1. **Indentasi memakai TAB**, dengan lebar 1 tab = **4 spasi**.
+   - Berlaku untuk semua file kode (`.ts`, `.tsx`, `.json`, dll).
+   - **Pengecualian:** YAML (`.yml`/`.yaml`) tidak boleh memakai tab — gunakan 4 spasi.
+   - Ditegakkan via `.editorconfig` (root) + Prettier (`useTabs: true`, `tabWidth: 4`).
+2. **Setiap `interface`/`type` ditaruh di file khusus tipe**, terpisah dari logika.
+   - Konvensi nama: `*.types.ts` (mis. `config.types.ts`, `auth.types.ts`).
+   - File logika meng-`import` tipe dari file tipe tersebut, **tidak** mendeklarasikan
+     `interface`/`type` inline di file implementasi.
+   - Tujuan: tipe mudah ditemukan, di-reuse, dan dipisah dari implementasi.
+3. **Penamaan file mengikuti idiom NestJS** (suffix sesuai peran):
+   `*.module.ts`, `*.controller.ts`, `*.service.ts`, `*.guard.ts`, `*.filter.ts`,
+   `*.interceptor.ts`, `*.decorator.ts`, `*.entity.ts`, `*.dto.ts`, `*.enum.ts`.
+4. **Enum dikelompokkan per modul dalam satu file `*.enum.ts`** (bukan satu file per
+   enum). Enum lintas-modul ditaruh di `src/common/enums/app.enum.ts`.
+
+---
+
 ## 1. Ringkasan Soal
 
 Membangun **2 aplikasi web** yang berbagi 1 backend + 1 database:
@@ -201,16 +222,16 @@ Konvensi:
 
 ## 8. Urutan Pengerjaan Bertahap (Checklist)
 
-### Tahap 0 — Inisialisasi
-- [ ] Buat `docker-compose.yml` (MySQL 8) dan jalankan `docker compose up -d`.
-- [ ] Generate backend: `npx @nestjs/cli new backend`.
-- [ ] Generate frontend: `npm create vite@latest frontend -- --template react-ts`.
+### Tahap 0 — Inisialisasi ✅
+- [x] Buat `docker-compose.yml` (MySQL 8) dan jalankan `docker compose up -d`. (healthy di `:3306`)
+- [x] Generate backend: `npx @nestjs/cli new backend`.
+- [x] Generate frontend: `npm create vite@latest frontend -- --template react-ts`.
 
-### Tahap 1 — Backend Fondasi
-- [ ] Install deps: typeorm, mysql2, @nestjs/config, @nestjs/jwt, passport, passport-jwt, bcrypt, class-validator, class-transformer, @nestjs/swagger, multer types.
-- [ ] Setup `ConfigModule` + `.env` (DB, JWT_SECRET, UPLOAD_DIR).
-- [ ] Setup TypeORM datasource + koneksi.
-- [ ] Common: response interceptor (envelope), exception filter, `@Roles` decorator, `RolesGuard`, `JwtAuthGuard`.
+### Tahap 1 — Backend Fondasi ✅
+- [x] Install deps: typeorm, mysql2, @nestjs/config, @nestjs/jwt, passport, passport-jwt, bcrypt, class-validator, class-transformer, @nestjs/swagger, multer types. (+ dotenv)
+- [x] Setup `ConfigModule` + `.env` (DB, JWT_SECRET, UPLOAD_DIR). (validasi env fail-fast di `configuration.ts`)
+- [x] Setup TypeORM datasource + koneksi. (`typeorm.config.ts` runtime + `database/data-source.ts` untuk CLI migrasi)
+- [x] Common: response interceptor (envelope), exception filter, `@Roles` decorator, `RolesGuard`, `JwtAuthGuard`. (+ `@ResponseMessage`, enum `UserRole`, tipe `ApiResponse`/`JwtPayload`)
 
 ### Tahap 2 — Entity & Database
 - [ ] Buat entity `User`, `Employee`, `Attendance` + relasi.
