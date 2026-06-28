@@ -295,9 +295,9 @@ Konvensi:
 - [x] Dashboard absen + `<PhotoCapture/>` + submit multipart. (kamera `getUserMedia` + fallback unggah; live clock; aksi Clock In/Out otomatis dari status hari ini; lokasi best-effort otomatis; toast)
 - [x] Riwayat absensi sendiri. (filter tanggal, tabel desktop + card mobile, pagination, modal foto)
 
-### Tahap 9 — Halaman HRD
+### Tahap 9 — Halaman HRD ✅
 - [x] Data Karyawan (tabel + modal form CRUD). (shell sidebar admin; search debounce; create/edit + email read-only saat edit; nonaktifkan via ConfirmDialog; teruji)
-- [ ] Monitoring absensi view-only + filter + preview foto.
+- [x] Monitoring absensi view-only + filter + preview foto. (filter karyawan/tanggal/tipe; tabel desktop + card mobile; link lokasi; pagination; riwayat karyawan nonaktif tetap tampil)
 
 ### Tahap 9b — Perbaikan: akses karyawan nonaktif (backend) ✅
 - [x] Tolak login karyawan yang `is_active=false` (`AuthService.login` → 403 "Akun Anda telah dinonaktifkan. Hubungi HRD.").

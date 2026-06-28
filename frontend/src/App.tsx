@@ -5,6 +5,7 @@ import { ProtectedRoute } from './routes/ProtectedRoute'
 import { FullPageLoader } from './components/FullPageLoader'
 import { EmployeeLayout } from './components/layout/EmployeeLayout'
 import { AdminLayout } from './components/layout/AdminLayout'
+import { ShowcaseLayout } from './components/layout/ShowcaseLayout'
 import { LoginPage } from './pages/auth/LoginPage'
 import { HowItWorksPage } from './pages/showcase/HowItWorksPage'
 import { TechPage } from './pages/showcase/TechPage'
@@ -27,8 +28,10 @@ export default function App() {
 		<Routes>
 			{/* Public */}
 			<Route path="/login" element={<LoginPage />} />
-			<Route path="/cara-kerja" element={<HowItWorksPage />} />
-			<Route path="/teknologi" element={<TechPage />} />
+			<Route element={<ShowcaseLayout />}>
+				<Route path="/cara-kerja" element={<HowItWorksPage />} />
+				<Route path="/teknologi" element={<TechPage />} />
+			</Route>
 
 			{/* Employee */}
 			<Route
