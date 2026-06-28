@@ -3,6 +3,7 @@ import { useAuth } from './hooks/use-auth'
 import { homePathForRole } from './routes/paths'
 import { ProtectedRoute } from './routes/ProtectedRoute'
 import { FullPageLoader } from './components/FullPageLoader'
+import { EmployeeLayout } from './components/layout/EmployeeLayout'
 import { LoginPage } from './pages/auth/LoginPage'
 import { HowItWorksPage } from './pages/showcase/HowItWorksPage'
 import { TechPage } from './pages/showcase/TechPage'
@@ -30,21 +31,15 @@ export default function App() {
 
 			{/* Employee */}
 			<Route
-				path="/absen"
 				element={
 					<ProtectedRoute roles={['EMPLOYEE']}>
-						<AbsenPage />
+						<EmployeeLayout />
 					</ProtectedRoute>
 				}
-			/>
-			<Route
-				path="/riwayat"
-				element={
-					<ProtectedRoute roles={['EMPLOYEE']}>
-						<RiwayatPage />
-					</ProtectedRoute>
-				}
-			/>
+			>
+				<Route path="/absen" element={<AbsenPage />} />
+				<Route path="/riwayat" element={<RiwayatPage />} />
+			</Route>
 
 			{/* HRD admin */}
 			<Route
