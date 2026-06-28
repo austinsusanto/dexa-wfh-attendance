@@ -35,3 +35,8 @@ coverage/
 !.vscode/extensions.json
 .DS_Store
 *.swp
+
+# Design handoff artifacts (kept locally, not part of the codebase)
+/FRONTEND_DESIGN.md
+/Dexa Group web app prototype/
+/Dexa Group web app prototype.zip

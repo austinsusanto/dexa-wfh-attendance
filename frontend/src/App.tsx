@@ -1,122 +1,72 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { useAuth } from './hooks/use-auth'
+import { homePathForRole } from './routes/paths'
+import { ProtectedRoute } from './routes/ProtectedRoute'
+import { FullPageLoader } from './components/FullPageLoader'
+import { LoginPage } from './pages/auth/LoginPage'
+import { HowItWorksPage } from './pages/showcase/HowItWorksPage'
+import { TechPage } from './pages/showcase/TechPage'
+import { AbsenPage } from './pages/employee/AbsenPage'
+import { RiwayatPage } from './pages/employee/RiwayatPage'
+import { KaryawanPage } from './pages/hrd/KaryawanPage'
+import { MonitoringPage } from './pages/hrd/MonitoringPage'
+import { NotFoundPage } from './pages/NotFoundPage'
 
-function App() {
-  const [count, setCount] = useState(0)
-
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+/** Sends `/` to login or the role's home depending on auth state. */
+function RootRedirect() {
+	const { user, status } = useAuth()
+	if (status === 'loading') return <FullPageLoader />
+	if (!user) return <Navigate to="/login" replace />
+	return <Navigate to={homePathForRole(user.role)} replace />
 }
 
-export default App
+export default function App() {
+	return (
+		<Routes>
+			{/* Public */}
+			<Route path="/login" element={<LoginPage />} />
+			<Route path="/cara-kerja" element={<HowItWorksPage />} />
+			<Route path="/teknologi" element={<TechPage />} />
+
+			{/* Employee */}
+			<Route
+				path="/absen"
+				element={
+					<ProtectedRoute roles={['EMPLOYEE']}>
+						<AbsenPage />
+					</ProtectedRoute>
+				}
+			/>
+			<Route
+				path="/riwayat"
+				element={
+					<ProtectedRoute roles={['EMPLOYEE']}>
+						<RiwayatPage />
+					</ProtectedRoute>
+				}
+			/>
+
+			{/* HRD admin */}
+			<Route
+				path="/admin/karyawan"
+				element={
+					<ProtectedRoute roles={['HRD_ADMIN']}>
+						<KaryawanPage />
+					</ProtectedRoute>
+				}
+			/>
+			<Route
+				path="/admin/monitoring"
+				element={
+					<ProtectedRoute roles={['HRD_ADMIN']}>
+						<MonitoringPage />
+					</ProtectedRoute>
+				}
+			/>
+
+			{/* Root + fallback */}
+			<Route path="/" element={<RootRedirect />} />
+			<Route path="*" element={<NotFoundPage />} />
+		</Routes>
+	)
+}

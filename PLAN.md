@@ -284,10 +284,11 @@ Konvensi:
 - [~] Anotasi DTO & endpoint. (auth selesai: `LoginDto`, `@ApiOperation`, `@ApiBearerAuth`;
       endpoint employees & attendances dianotasi saat modulnya dibuat di Tahap 4–5)
 
-### Tahap 7 — Frontend Fondasi
-- [ ] Setup Tailwind/MUI, React Router, Axios instance + interceptor.
-- [ ] `AuthContext` + `ProtectedRoute` (role-based).
-- [ ] Service API per domain (auth, employees, attendances).
+### Tahap 7 — Frontend Fondasi ✅
+- [x] Setup Tailwind (v4) + token Dexa, React Router (v7), Axios instance + interceptor (JWT + auto-logout 401).
+- [x] `AuthContext` (AuthProvider + `useAuth`) + `ProtectedRoute` (role-based) + redirect by role.
+- [x] Service API per domain (auth, employees, attendances) + tipe domain + env config.
+- [x] Skeleton routing + placeholder semua halaman (diisi per-halaman di Tahap 8–9). Build & dev server OK.
 
 ### Tahap 8 — Halaman Karyawan
 - [ ] Login (redirect by role).
