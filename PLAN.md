@@ -290,14 +290,19 @@ Konvensi:
 - [x] Service API per domain (auth, employees, attendances) + tipe domain + env config.
 - [x] Skeleton routing + placeholder semua halaman (diisi per-halaman di Tahap 8–9). Build & dev server OK.
 
-### Tahap 8 — Halaman Karyawan
-- [ ] Login (redirect by role).
-- [ ] Dashboard absen + `<PhotoCapture/>` + submit multipart.
-- [ ] Riwayat absensi sendiri.
+### Tahap 8 — Halaman Karyawan ✅
+- [x] Login (redirect by role). (split-panel brand, akun demo quick-fill, show/hide password)
+- [x] Dashboard absen + `<PhotoCapture/>` + submit multipart. (kamera `getUserMedia` + fallback unggah; live clock; aksi Clock In/Out otomatis dari status hari ini; lokasi best-effort otomatis; toast)
+- [x] Riwayat absensi sendiri. (filter tanggal, tabel desktop + card mobile, pagination, modal foto)
 
 ### Tahap 9 — Halaman HRD
-- [ ] Master karyawan (tabel + modal form CRUD).
+- [x] Data Karyawan (tabel + modal form CRUD). (shell sidebar admin; search debounce; create/edit + email read-only saat edit; nonaktifkan via ConfirmDialog; teruji)
 - [ ] Monitoring absensi view-only + filter + preview foto.
+
+### Tahap 9b — Perbaikan: akses karyawan nonaktif (backend) ⏳
+- [ ] Tolak login karyawan yang `is_active=false` (`AuthService.login`, pesan jelas).
+- [ ] `JwtStrategy.validate` cek `employee.isActive` → sesi aktif ikut diputus saat dinonaktifkan (401 → auto-logout di FE).
+- [ ] (Catatan) ditemukan saat Tahap 9: soft delete sebelumnya hanya menyembunyikan karyawan, belum memblokir akses.
 
 ### Tahap 10 — Finalisasi
 - [ ] README lengkap (setup, kredensial demo, cara run, screenshot opsional).
@@ -328,5 +333,6 @@ Konvensi:
 - **Timestamp server**: `checked_in_at` & `attendance_date` selalu diisi backend, tidak dari client → integritas data absensi.
 - **Foto bukti WFH**: disimpan di `backend/uploads/attendances/`, path direferensikan di DB, di-serve statis.
 - **View-only HRD**: ditegakkan di level routing/guard — HRD tidak punya endpoint mutasi absensi.
-- **Soft delete karyawan**: jaga histori absensi tetap valid.
+- **Soft delete karyawan**: jaga histori absensi tetap valid **dan** blokir akses
+  karyawan nonaktif (tidak bisa login / submit absensi) — lihat Tahap 9b.
 - **Keamanan**: password di-hash bcrypt, JWT expiry, validasi semua input, CORS dibatasi ke origin frontend.

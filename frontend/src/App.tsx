@@ -4,6 +4,7 @@ import { homePathForRole } from './routes/paths'
 import { ProtectedRoute } from './routes/ProtectedRoute'
 import { FullPageLoader } from './components/FullPageLoader'
 import { EmployeeLayout } from './components/layout/EmployeeLayout'
+import { AdminLayout } from './components/layout/AdminLayout'
 import { LoginPage } from './pages/auth/LoginPage'
 import { HowItWorksPage } from './pages/showcase/HowItWorksPage'
 import { TechPage } from './pages/showcase/TechPage'
@@ -43,21 +44,15 @@ export default function App() {
 
 			{/* HRD admin */}
 			<Route
-				path="/admin/karyawan"
 				element={
 					<ProtectedRoute roles={['HRD_ADMIN']}>
-						<KaryawanPage />
+						<AdminLayout />
 					</ProtectedRoute>
 				}
-			/>
-			<Route
-				path="/admin/monitoring"
-				element={
-					<ProtectedRoute roles={['HRD_ADMIN']}>
-						<MonitoringPage />
-					</ProtectedRoute>
-				}
-			/>
+			>
+				<Route path="/admin/karyawan" element={<KaryawanPage />} />
+				<Route path="/admin/monitoring" element={<MonitoringPage />} />
+			</Route>
 
 			{/* Root + fallback */}
 			<Route path="/" element={<RootRedirect />} />
