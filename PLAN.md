@@ -299,10 +299,11 @@ Konvensi:
 - [x] Data Karyawan (tabel + modal form CRUD). (shell sidebar admin; search debounce; create/edit + email read-only saat edit; nonaktifkan via ConfirmDialog; teruji)
 - [ ] Monitoring absensi view-only + filter + preview foto.
 
-### Tahap 9b — Perbaikan: akses karyawan nonaktif (backend) ⏳
-- [ ] Tolak login karyawan yang `is_active=false` (`AuthService.login`, pesan jelas).
-- [ ] `JwtStrategy.validate` cek `employee.isActive` → sesi aktif ikut diputus saat dinonaktifkan (401 → auto-logout di FE).
-- [ ] (Catatan) ditemukan saat Tahap 9: soft delete sebelumnya hanya menyembunyikan karyawan, belum memblokir akses.
+### Tahap 9b — Perbaikan: akses karyawan nonaktif (backend) ✅
+- [x] Tolak login karyawan yang `is_active=false` (`AuthService.login` → 403 "Akun Anda telah dinonaktifkan. Hubungi HRD.").
+- [x] `JwtStrategy.validate` cek `employee.isActive` → sesi aktif diputus saat dinonaktifkan (401 → auto-logout di FE).
+- [x] Auth lookups join relasi `employee`; unit test (login aktif/nonaktif) + verifikasi live. Lulus unit 14/14, e2e 17/17.
+- [x] (Catatan) ditemukan saat Tahap 9: soft delete sebelumnya hanya menyembunyikan karyawan, belum memblokir akses.
 
 ### Tahap 10 — Finalisasi
 - [ ] README lengkap (setup, kredensial demo, cara run, screenshot opsional).

@@ -22,19 +22,24 @@ export class UsersService {
 
 	/**
 	 * Finds a user by email including the password column (which is
-	 * `select: false` by default). For credential verification only.
+	 * `select: false` by default) and the linked employee (for the active check).
+	 * For credential verification only.
 	 */
 	findByEmailForAuth(email: string): Promise<User | null> {
 		return this.userRepo
 			.createQueryBuilder('user')
 			.addSelect('user.password')
+			.leftJoinAndSelect('user.employee', 'employee')
 			.where('user.email = :email', { email })
 			.getOne();
 	}
 
-	/** Finds a user by id (without the password). */
+	/** Finds a user by id with the linked employee (without the password). */
 	findById(id: number): Promise<User | null> {
-		return this.userRepo.findOne({ where: { id } });
+		return this.userRepo.findOne({
+			where: { id },
+			relations: { employee: true },
+		});
 	}
 
 	/** True if a login account with this email already exists. */

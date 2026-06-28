@@ -1,4 +1,4 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -90,5 +90,39 @@ describe('AuthService', () => {
 		await expect(
 			authService.validateUser('admin@dexa.com', 'WrongPassword'),
 		).rejects.toBeInstanceOf(UnauthorizedException);
+	});
+
+	it('validateUser allows an employee with an active employee record', async () => {
+		const passwordHash = await bcrypt.hash('Employee123', 10);
+		usersService.findByEmailForAuth.mockResolvedValue({
+			id: 2,
+			email: 'budi@dexa.com',
+			password: passwordHash,
+			role: UserRole.EMPLOYEE,
+			employeeId: 1,
+			employee: { id: 1, isActive: true },
+		} as User);
+
+		const result = await authService.validateUser(
+			'budi@dexa.com',
+			'Employee123',
+		);
+		expect(result.role).toBe(UserRole.EMPLOYEE)
+	});
+
+	it('validateUser throws 403 when the employee is deactivated', async () => {
+		const passwordHash = await bcrypt.hash('Employee123', 10);
+		usersService.findByEmailForAuth.mockResolvedValue({
+			id: 2,
+			email: 'budi@dexa.com',
+			password: passwordHash,
+			role: UserRole.EMPLOYEE,
+			employeeId: 1,
+			employee: { id: 1, isActive: false },
+		} as User);
+
+		await expect(
+			authService.validateUser('budi@dexa.com', 'Employee123'),
+		).rejects.toBeInstanceOf(ForbiddenException);
 	});
 });

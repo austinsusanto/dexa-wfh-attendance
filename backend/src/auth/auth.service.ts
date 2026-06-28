@@ -1,6 +1,11 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+	ForbiddenException,
+	Injectable,
+	UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { UserRole } from '../common/enums/app.enum';
 import {
 	AuthenticatedUser,
 	JwtPayload,
@@ -27,6 +32,16 @@ export class AuthService {
 		const user = await this.usersService.findByEmailForAuth(email);
 		if (!user || !(await bcrypt.compare(password, user.password))) {
 			throw new UnauthorizedException('Invalid email or password');
+		}
+
+		// A deactivated employee can no longer access the system.
+		if (
+			user.role === UserRole.EMPLOYEE &&
+			(!user.employee || !user.employee.isActive)
+		) {
+			throw new ForbiddenException(
+				'Akun Anda telah dinonaktifkan. Hubungi HRD.',
+			);
 		}
 
 		return {

@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AppConfig } from '../../config/config.types';
+import { UserRole } from '../../common/enums/app.enum';
 import {
 	AuthenticatedUser,
 	JwtPayload,
@@ -31,6 +32,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 		const user = await this.usersService.findById(payload.sub);
 		if (!user) {
 			throw new UnauthorizedException('User no longer exists');
+		}
+
+		// Deactivating an employee revokes their active session on the next request.
+		if (
+			user.role === UserRole.EMPLOYEE &&
+			(!user.employee || !user.employee.isActive)
+		) {
+			throw new UnauthorizedException('Akun Anda telah dinonaktifkan.');
 		}
 
 		return {
