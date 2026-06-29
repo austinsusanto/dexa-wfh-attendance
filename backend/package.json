@@ -14,7 +14,7 @@
 		"build:common": "npm run build -w @dexa/common",
 		"build": "npm run build:common && npm run build -w @dexa/gateway -w @dexa/identity -w @dexa/employees -w @dexa/attendances",
 		"format": "prettier --write \"{common,gateway,identity,employees,attendances}/src/**/*.ts\"",
-		"test": "npm run test -w @dexa/identity -w @dexa/employees -w @dexa/attendances -w @dexa/gateway"
+		"test": "npm run test -w @dexa/identity -w @dexa/employees -w @dexa/attendances && npm run test:e2e -w @dexa/gateway"
 	},
 	"devDependencies": {
 		"prettier": "^3.4.2"
