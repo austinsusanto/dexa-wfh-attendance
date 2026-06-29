@@ -305,11 +305,173 @@ Konvensi:
 - [x] Auth lookups join relasi `employee`; unit test (login aktif/nonaktif) + verifikasi live. Lulus unit 14/14, e2e 17/17.
 - [x] (Catatan) ditemukan saat Tahap 9: soft delete sebelumnya hanya menyembunyikan karyawan, belum memblokir akses.
 
-### Tahap 10 — Finalisasi
-- [ ] README lengkap (setup, kredensial demo, cara run, screenshot opsional).
-- [ ] `.env.example` backend & frontend.
-- [ ] Uji end-to-end semua alur.
-- [ ] (Opsional) Dockerfile backend+frontend untuk run sekali jalan.
+---
+
+## ⭐ HANDOFF — Status saat ini (untuk sesi/dev berikutnya)
+
+> Sesi pengerjaan aplikasi sudah sangat panjang. **Tahap 10 (microservices) & 11
+> (deployment) akan dikerjakan di sesi baru.** Bagian ini merangkum kondisi terkini
+> agar handoff lengkap.
+
+**Sudah selesai (monolith modular + frontend):**
+- **Backend (NestJS, `backend/`)** — Tahap 1–6 + 9b selesai. Modul: `auth`, `users`,
+  `employees`, `attendances`, plus `common`, `config`, `database`.
+  - Entity: `User`, `Employee`, `Attendance` (MySQL 8 via `docker-compose.yml`).
+  - Auth JWT + role guard (`EMPLOYEE`/`HRD_ADMIN`); response envelope; validation;
+    Multer upload foto ke `backend/uploads/attendances/`; Swagger di `/api/docs`.
+  - Migrations (`InitSchema`) + seeder idempotent (`npm run seed`).
+  - Karyawan nonaktif diblokir akses (9b). Test: **unit 14/14, e2e 17/17**.
+- **Frontend (React+Vite+TS+Tailwind, `frontend/`)** — Tahap 7–9 + showcase selesai.
+  Semua halaman: Login, Absen (kamera), Riwayat, Data Karyawan, Monitoring,
+  Cara Kerja, Teknologi, 404. Axios + AuthContext + ProtectedRoute.
+- **Repo:** `github.com/austinsusanto/dexa-wfh-attendance`, branch `main`.
+- **Kredensial demo:** lihat §10. **Konvensi kode:** lihat §0.
+- **Catatan:** DB saat ini berisi beberapa baris uji manual (mis. `Austin
+  Susanto/Susanta`, `Dewi` ter-nonaktif) — bisa dibersihkan/seed ulang di Tahap 12.
+
+**Belum dikerjakan:** pemecahan microservices (Tahap 10), deployment (Tahap 11),
+finalisasi (Tahap 12).
+
+---
+
+### Tahap 10 — Pecah menjadi Microservices 🎯
+
+> **Tujuan:** mengekstrak monolith modular menjadi service-service independen yang
+> dapat dideploy & diskalakan terpisah (END GOAL, lihat §2). Dikerjakan di sesi baru.
+
+**10.1 Target arsitektur (usulan — konfirmasi dulu di awal sesi):**
+- **Identity Service** (gabungan `auth` + `users`) — login, terbitkan JWT, akun user,
+  role. Memiliki tabel `users`.
+- **Employees Service** — CRUD karyawan. Memiliki tabel `employees`.
+- **Attendances Service** — submit absensi, riwayat, monitoring, upload foto.
+  Memiliki tabel `attendances`.
+- **API Gateway** — entry tunggal `/api/v1`, routing ke service, verifikasi JWT,
+  CORS, teruskan konteks user. (Alternatif gateway: nginx/Traefik atau NestJS gateway.)
+
+  Catatan: `auth` & `users` digabung jadi Identity karena coupling-nya erat; bisa
+  dipecah lagi nanti. Tiap modul memang sudah dirancang sebagai calon service (§2).
+
+**10.2 Strategi database (per-service):**
+- **Database-per-service**: `identity_db` (users), `employees_db` (employees),
+  `attendances_db` (attendances). **Hapus FK lintas-service** — relasi
+  `users.employee_id` & `attendances.employee_id` menjadi **referensi by ID saja**
+  (tanpa FK DB). Tiap service punya migrations + seeder sendiri.
+- (Opsi staging lebih ringan: satu MySQL banyak schema dulu, pisah penuh menyusul.)
+
+**10.3 Komunikasi antar-service (keputusan kunci):**
+- **Sync**: REST/HTTP antar-service, atau transport NestJS microservice (TCP/gRPC).
+- **Async/event** (disarankan untuk decoupling): message broker (RabbitMQ / NATS /
+  Redis). Event penting: `employee.created`, `employee.updated`, `employee.deactivated`.
+- **Alur lintas-service yang harus ditangani ulang** (saat ini in-process):
+  1. **Buat karyawan + akun login** — Employees buat employee lalu minta Identity
+     buat user (`createEmployeeUser`). Perlu **saga/kompensasi** (jika buat user gagal
+     → batalkan/hapus employee). Lihat `EmployeesService.create` (sekarang sinkron).
+  2. **Blokir akses karyawan nonaktif** (9b) — saat ini Identity (auth) join relasi
+     `employee.isActive`. Setelah dipecah: Employees publish `employee.deactivated` →
+     Identity simpan status & tolak login/putus sesi; ATAU Identity tanya status ke
+     Employees saat login. **Pilih salah satu.**
+  3. **Monitoring (absensi + info karyawan)** — Attendances simpan `employeeId` saja.
+     Untuk tampilkan nama/NIK: agregasi di Gateway (panggil Employees), ATAU
+     Attendances simpan snapshot/cache data karyawan, ATAU denormalisasi. **Pilih.**
+- **JWT lintas-service**: secret/kunci sama; Gateway verifikasi lalu teruskan klaim
+  (header), atau tiap service punya `JwtAuthGuard` sendiri dengan secret sama.
+
+**10.4 Penyimpanan file (foto absensi):**
+- Pindah dari disk lokal (`backend/uploads/`) ke **object storage S3-compatible
+  (MinIO untuk self-host / AWS S3)** agar Attendances stateless & scalable. Update
+  konfigurasi upload (Multer S3) + URL serve foto. (Alternatif sementara: shared volume.)
+
+**10.5 Struktur kode & shared lib:**
+- Disarankan **NestJS monorepo** (`apps/`: gateway, identity, employees, attendances;
+  `libs/`: common — envelope interceptor, filter, enum, tipe, guard). Reuse kode yang ada.
+- Pindahkan `src/common/*` ke `libs/common`. Tiap app punya `main.ts`, config, migrations.
+- (Alternatif: multi-repo per service — lebih berat untuk sesi singkat.)
+
+**10.6 Langkah inkremental yang disarankan:**
+1. Konversi `backend/` ke mode **monorepo NestJS** (`nest g app ...`, `libs/common`).
+2. Ekstrak modul paling independen lebih dulu (mis. **Attendances**) → app sendiri.
+3. Lanjut **Employees**, lalu **Identity** (auth+users).
+4. Tambahkan **API Gateway** (routing + auth) di depan.
+5. Pisahkan **database per service**; ganti pemanggilan in-process → REST/broker.
+6. Pindahkan foto ke **object storage**.
+7. Sesuaikan **frontend**: `VITE_API_BASE_URL` tetap menunjuk ke Gateway (kontrak API
+   `/api/v1` tidak berubah dari sisi FE bila Gateway menjaga path & envelope).
+
+**10.7 Checklist:**
+- [ ] Konfirmasi batas service + strategi DB + transport (sync/broker) + storage.
+- [ ] Konversi ke monorepo NestJS + `libs/common`.
+- [ ] Ekstrak Attendances → Employees → Identity menjadi app terpisah.
+- [ ] API Gateway (routing `/api/v1`, verifikasi JWT, CORS, envelope tetap konsisten).
+- [ ] Database per service + migrations + seeder per service.
+- [ ] Ganti alur lintas-service (buat karyawan+user, blokir nonaktif, monitoring).
+- [ ] Foto absensi → object storage (MinIO/S3).
+- [ ] Update test agar tetap lulus (per service); pastikan kontrak `/api/v1` utuh.
+
+---
+
+### Tahap 11 — Deployment 🚀
+
+> **Tujuan:** menjalankan seluruh sistem microservices (+ frontend) di lingkungan
+> yang dapat diakses. Dikerjakan di sesi baru, setelah/seiring Tahap 10.
+
+**11.1 Kontainerisasi:**
+- **Dockerfile per service** (multi-stage: build → runtime ramping) untuk Gateway,
+  Identity, Employees, Attendances.
+- **Dockerfile frontend** (build Vite → serve statis via **nginx**).
+- `.dockerignore` (node_modules, dist, .env, uploads).
+
+**11.2 Orkestrasi (pilih sesuai target):**
+- **Opsi A — Docker Compose (`docker-compose.prod.yml`)**: gateway, identity,
+  employees, attendances, DB masing-masing (atau 1 MySQL multi-schema), **MinIO**,
+  **message broker** (bila dipakai), frontend (nginx). Paling cepat untuk staging/VPS.
+- **Opsi B — Kubernetes**: Deployment + Service + Ingress + ConfigMap + Secret per
+  service; cocok untuk produksi/skalabilitas. (Bisa menyusul setelah Compose jalan.)
+
+**11.3 Konfigurasi & secret:**
+- `.env` per service (DB URL, `JWT_SECRET` sama di semua service, `CORS_ORIGIN`,
+  kredensial object storage, URL broker, URL antar-service).
+- Jangan commit secret asli; sediakan `.env.example` per service.
+
+**11.4 Database & data:**
+- MySQL per service (kontainer atau managed). **Jalankan migrations saat deploy**
+  (init job/entrypoint) + seeder data demo.
+
+**11.5 Jaringan & keamanan:**
+- Hanya **Gateway** & **frontend** yang publik; service lain internal.
+- CORS dibatasi di Gateway; HTTPS (reverse proxy/Ingress + TLS).
+
+**11.6 Frontend:**
+- Build dengan `VITE_API_BASE_URL` = URL publik Gateway (`…/api/v1`) dan
+  `VITE_API_ORIGIN` = origin untuk foto (Gateway/CDN/object storage).
+- Serve via nginx (Dockerfile) atau host statis (Vercel/Netlify).
+
+**11.7 Target hosting (usulan, pilih satu):**
+- VPS tunggal + Docker Compose (paling sederhana & murah), atau
+- PaaS (Railway / Render / Fly.io) per service + DB managed, atau
+- Kubernetes (GKE/EKS/DO) untuk produksi penuh.
+
+**11.8 (Opsional) CI/CD:**
+- GitHub Actions: lint+test → build image → push registry → deploy.
+
+**11.9 Checklist:**
+- [ ] Dockerfile tiap service + frontend (+ `.dockerignore`).
+- [ ] `docker-compose.prod.yml` (atau manifest K8s) untuk seluruh stack.
+- [ ] `.env.example` per service; secret di-manage aman.
+- [ ] Migrations + seeder jalan otomatis saat deploy.
+- [ ] Object storage (MinIO/S3) ter-provision + bucket foto.
+- [ ] Gateway publik + HTTPS + CORS; service lain internal.
+- [ ] Frontend ter-deploy menunjuk ke Gateway.
+- [ ] Smoke test end-to-end di lingkungan ter-deploy.
+
+---
+
+### Tahap 12 — Finalisasi
+- [ ] README lengkap (arsitektur microservices, diagram, setup lokal & deploy,
+      kredensial demo, cara run tiap service, link demo).
+- [ ] `.env.example` tiap service & frontend.
+- [ ] Bersihkan data uji / seed ulang agar demo bersih (lihat catatan handoff).
+- [ ] Uji end-to-end semua alur (lokal & ter-deploy).
+- [ ] (Opsional) Diagram arsitektur final + screenshot.
 
 ---
 
