@@ -585,15 +585,28 @@ deployment (Tahap 11), finalisasi (Tahap 12).
 **11.8 (Opsional) CI/CD:**
 - GitHub Actions: lint+test → build image → push registry → deploy.
 
-**11.9 Checklist:**
-- [ ] Dockerfile tiap service + frontend (+ `.dockerignore`).
-- [ ] `docker-compose.prod.yml` (atau manifest K8s) untuk seluruh stack.
-- [ ] `.env.example` per service; secret di-manage aman.
-- [ ] Migrations + seeder jalan otomatis saat deploy.
-- [ ] Object storage (MinIO/S3) ter-provision + bucket foto.
-- [ ] Gateway publik + HTTPS + CORS; service lain internal.
-- [ ] Frontend ter-deploy menunjuk ke Gateway.
-- [ ] Smoke test end-to-end di lingkungan ter-deploy.
+**11.9 Checklist:** (artefak SELESAI + smoke-test lokal LULUS; deploy ke VM = langkah user, lihat `DEPLOYMENT.md`)
+- [x] Dockerfile tiap service + frontend (+ `.dockerignore`). (satu `backend/Dockerfile`
+      multi-stage multi-target: builder→proddeps→runtime per service; `frontend/Dockerfile`
+      build Vite→nginx + `nginx.conf` SPA fallback. Keduanya ter-build OK.)
+- [x] `docker-compose.prod.yml` untuk seluruh stack. (mysql + minio + `migrate` one-shot
+      [employees→identity→attendances] + 3 service TCP + gateway + frontend + Caddy;
+      project name terisolasi `dexa-wfh-prod`.)
+- [x] `.env.prod.example` (root) + secret di-manage via `.env.prod` (gitignored).
+      `.env.example` per service sudah ada dari Tahap 10.
+- [x] Migrations + seeder jalan otomatis saat deploy. (job `migrate`: migrasi idempotent
+      WAJIB sukses; seed best-effort + self-skip bila sudah ada → re-deploy aman.)
+- [x] Object storage (MinIO) ter-provision + bucket foto. (bucket dibuat on-demand oleh
+      attendances service/seed; foto ter-serve di `GET /uploads/*` — terverifikasi 200 image/jpeg.)
+- [x] Gateway + frontend publik via Caddy + HTTPS otomatis (Let's Encrypt) + CORS; service
+      TCP/DB/MinIO internal saja. (`Caddyfile`: `/api`,`/uploads`→gateway, sisanya→frontend.)
+- [x] Frontend menunjuk ke Gateway via single-origin (path relatif `/api/v1` + `/uploads/*`).
+- [x] **Smoke test end-to-end LULUS di stack prod lokal** (login admin/karyawan, /auth/me,
+      password salah 401, GET employees, monitoring + enrichment, RBAC 403, clock-in multipart,
+      double clock-in 409, foto /uploads 200, frontend SPA 200). Pilihan host final:
+      **Oracle Cloud Always Free VM + DuckDNS** — runbook lengkap di `DEPLOYMENT.md`.
+- [ ] Smoke test di lingkungan ter-deploy (VM) — menunggu provisioning VM oleh user
+      (panduan langkah-demi-langkah di `DEPLOYMENT.md`).
 
 ---
 

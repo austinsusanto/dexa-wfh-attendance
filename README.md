@@ -1,3 +1,19 @@
+<!--
+The YAML block below is read by Hugging Face Spaces to configure the demo
+deployment (Docker SDK, port 7860). It is harmless on GitHub. See DEPLOYMENT.md
+(section "Hugging Face Spaces") for how the live demo is built and pushed.
+-->
+---
+title: Dexa WFH Attendance
+emoji: 🏢
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+short_description: Absensi WFH & Monitoring Karyawan (NestJS microservices + React)
+---
+
 # dexa-wfh-attendance
 
 Aplikasi Absensi WFH & Monitoring Karyawan — Dexa Group Fullstack Web Technical Test.

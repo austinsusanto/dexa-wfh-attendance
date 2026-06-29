@@ -1,0 +1,16 @@
+# Build context for the root all-in-one Dockerfile (Hugging Face Spaces).
+# Keep it small: deps + builds are reproduced inside the image; never ship secrets.
+**/node_modules
+**/dist
+**/build
+**/.env
+.env
+.env.prod
+.git
+*.log
+coverage
+**/coverage
+# Local-only heavy artifacts not needed in the image.
+Dexa Group web app prototype
+Dexa Group web app prototype.zip
+FRONTEND_DESIGN.md

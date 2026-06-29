@@ -1,0 +1,263 @@
+# =============================================================================
+# Dexa WFH Attendance — PRODUCTION stack (PLAN Tahap 11.2, Opsi A).
+#
+# One command brings up the whole microservices system behind a single HTTPS
+# origin, suitable for a free always-on VM (e.g. Oracle Cloud Always Free):
+#
+#   cp .env.prod.example .env.prod   # then edit secrets + DOMAIN
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#
+# Public surface: ONLY Caddy (ports 80/443). Everything else is internal.
+# Flow: Caddy --(/api,/uploads)--> gateway --TCP--> identity/employees/attendances
+#       Caddy --(everything else)--> frontend (nginx SPA)
+# Backing services: MySQL (3 schemas) + MinIO (attendance photos).
+# A one-shot `migrate` job runs migrations + seeders in the required order
+# (employees -> identity -> attendances) before the services start.
+# =============================================================================
+
+# Explicit project name so this stack has its own isolated volumes/network and
+# never collides with the dev docker-compose.yml (which derives its name from the
+# directory). On the VM only this stack runs, so it gets fresh volumes + seed.
+name: dexa-wfh-prod
+
+services:
+    # --- Backing services ----------------------------------------------------
+    mysql:
+        image: mysql:8.0
+        container_name: dexa-prod-mysql
+        restart: unless-stopped
+        environment:
+            MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+            MYSQL_DATABASE: ${MYSQL_DATABASE:-identity_db}
+            MYSQL_USER: ${MYSQL_USER:-dexa}
+            MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+        volumes:
+            - dexa_mysql_data:/var/lib/mysql
+            - ./infra/mysql-init:/docker-entrypoint-initdb.d:ro
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD}"]
+            interval: 10s
+            timeout: 5s
+            retries: 10
+        networks:
+            - dexa
+
+    minio:
+        image: minio/minio:latest
+        container_name: dexa-prod-minio
+        restart: unless-stopped
+        command: server /data --console-address ":9001"
+        environment:
+            MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+            MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+        volumes:
+            - dexa_minio_data:/data
+        healthcheck:
+            test: ["CMD", "mc", "ready", "local"]
+            interval: 10s
+            timeout: 5s
+            retries: 10
+        networks:
+            - dexa
+
+    # --- One-shot DB migrations + seed (runs once, then exits) ---------------
+    migrate:
+        build:
+            context: ./backend
+            dockerfile: Dockerfile
+            target: builder
+        image: dexa-backend-build
+        restart: "no"
+        depends_on:
+            mysql:
+                condition: service_healthy
+            minio:
+                condition: service_healthy
+        environment:
+            DB_HOST: mysql
+            DB_PORT: "3306"
+            DB_USERNAME: ${MYSQL_USER:-dexa}
+            DB_PASSWORD: ${MYSQL_PASSWORD}
+            # NO DB_DATABASE here: each service's data-source defaults to its own
+            # schema (employees_db / identity_db / attendances_db).
+            MINIO_ENDPOINT: minio
+            MINIO_PORT: "9000"
+            MINIO_USE_SSL: "false"
+            MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+            MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+            MINIO_BUCKET: ${MINIO_BUCKET:-attendance-photos}
+        # Migrations MUST succeed (idempotent). Seeds are best-effort so a
+        # re-deploy on an already-seeded DB doesn't fail the job.
+        command:
+            - sh
+            - -c
+            - |
+                set -e
+                npm run migration:run -w @dexa/employees
+                npm run migration:run -w @dexa/identity
+                npm run migration:run -w @dexa/attendances
+                ( npm run seed -w @dexa/employees \
+                  && npm run seed -w @dexa/identity \
+                  && npm run seed -w @dexa/attendances ) \
+                  || echo "Seeding skipped/failed (likely already seeded) — continuing."
+        networks:
+            - dexa
+
+    # --- Application microservices (internal only) ---------------------------
+    identity:
+        build:
+            context: ./backend
+            dockerfile: Dockerfile
+            target: identity
+        restart: unless-stopped
+        depends_on:
+            mysql:
+                condition: service_healthy
+            migrate:
+                condition: service_completed_successfully
+        environment:
+            NODE_ENV: production
+            TCP_HOST: 0.0.0.0
+            TCP_PORT: "4001"
+            DB_HOST: mysql
+            DB_PORT: "3306"
+            DB_USERNAME: ${MYSQL_USER:-dexa}
+            DB_PASSWORD: ${MYSQL_PASSWORD}
+            DB_DATABASE: identity_db
+            JWT_SECRET: ${JWT_SECRET}
+            JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
+            EMPLOYEES_TCP_HOST: employees
+            EMPLOYEES_TCP_PORT: "4002"
+        networks:
+            - dexa
+
+    employees:
+        build:
+            context: ./backend
+            dockerfile: Dockerfile
+            target: employees
+        restart: unless-stopped
+        depends_on:
+            mysql:
+                condition: service_healthy
+            migrate:
+                condition: service_completed_successfully
+        environment:
+            NODE_ENV: production
+            TCP_HOST: 0.0.0.0
+            TCP_PORT: "4002"
+            DB_HOST: mysql
+            DB_PORT: "3306"
+            DB_USERNAME: ${MYSQL_USER:-dexa}
+            DB_PASSWORD: ${MYSQL_PASSWORD}
+            DB_DATABASE: employees_db
+            IDENTITY_TCP_HOST: identity
+            IDENTITY_TCP_PORT: "4001"
+        networks:
+            - dexa
+
+    attendances:
+        build:
+            context: ./backend
+            dockerfile: Dockerfile
+            target: attendances
+        restart: unless-stopped
+        depends_on:
+            mysql:
+                condition: service_healthy
+            minio:
+                condition: service_healthy
+            migrate:
+                condition: service_completed_successfully
+        environment:
+            NODE_ENV: production
+            TCP_HOST: 0.0.0.0
+            TCP_PORT: "4003"
+            DB_HOST: mysql
+            DB_PORT: "3306"
+            DB_USERNAME: ${MYSQL_USER:-dexa}
+            DB_PASSWORD: ${MYSQL_PASSWORD}
+            DB_DATABASE: attendances_db
+            MINIO_ENDPOINT: minio
+            MINIO_PORT: "9000"
+            MINIO_USE_SSL: "false"
+            MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+            MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+            MINIO_BUCKET: ${MINIO_BUCKET:-attendance-photos}
+            EMPLOYEES_TCP_HOST: employees
+            EMPLOYEES_TCP_PORT: "4002"
+        networks:
+            - dexa
+
+    # --- API Gateway (HTTP boundary, internal — Caddy proxies to it) ---------
+    gateway:
+        build:
+            context: ./backend
+            dockerfile: Dockerfile
+            target: gateway
+        restart: unless-stopped
+        depends_on:
+            - identity
+            - employees
+            - attendances
+        environment:
+            NODE_ENV: production
+            PORT: "3000"
+            CORS_ORIGIN: https://${DOMAIN}
+            JWT_SECRET: ${JWT_SECRET}
+            IDENTITY_TCP_HOST: identity
+            IDENTITY_TCP_PORT: "4001"
+            EMPLOYEES_TCP_HOST: employees
+            EMPLOYEES_TCP_PORT: "4002"
+            ATTENDANCES_TCP_HOST: attendances
+            ATTENDANCES_TCP_PORT: "4003"
+            MINIO_ENDPOINT: minio
+            MINIO_PORT: "9000"
+            MINIO_USE_SSL: "false"
+            MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+            MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+            MINIO_BUCKET: ${MINIO_BUCKET:-attendance-photos}
+        networks:
+            - dexa
+
+    # --- Frontend (static SPA via nginx, internal — Caddy proxies to it) -----
+    frontend:
+        build:
+            context: ./frontend
+            dockerfile: Dockerfile
+            args:
+                VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
+                VITE_API_ORIGIN: ${VITE_API_ORIGIN:-}
+        restart: unless-stopped
+        networks:
+            - dexa
+
+    # --- Caddy (the ONLY public service: HTTPS + routing) --------------------
+    caddy:
+        image: caddy:2-alpine
+        container_name: dexa-prod-caddy
+        restart: unless-stopped
+        depends_on:
+            - gateway
+            - frontend
+        ports:
+            - "80:80"
+            - "443:443"
+        environment:
+            DOMAIN: ${DOMAIN}
+        volumes:
+            - ./Caddyfile:/etc/caddy/Caddyfile:ro
+            - dexa_caddy_data:/data
+            - dexa_caddy_config:/config
+        networks:
+            - dexa
+
+networks:
+    dexa:
+        driver: bridge
+
+volumes:
+    dexa_mysql_data:
+    dexa_minio_data:
+    dexa_caddy_data:
+    dexa_caddy_config:

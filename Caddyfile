@@ -1,0 +1,28 @@
+# =============================================================================
+# Caddy — the single public entry point. Terminates HTTPS with an
+# automatically provisioned Let's Encrypt certificate for {$DOMAIN}, then routes:
+#   /api/*      + /uploads/*  -> gateway (NestJS HTTP boundary)
+#   everything else           -> frontend (nginx serving the React SPA)
+#
+# Because frontend + API share ONE origin there is no CORS to configure and the
+# frontend can use relative URLs. {$DOMAIN} comes from the root .env.
+# =============================================================================
+
+{$DOMAIN} {
+	encode gzip
+
+	# API surface + Swagger docs live under /api on the gateway.
+	handle /api/* {
+		reverse_proxy gateway:3000
+	}
+
+	# Attendance photos streamed by the gateway from MinIO (outside /api/v1).
+	handle /uploads/* {
+		reverse_proxy gateway:3000
+	}
+
+	# Everything else is the static SPA.
+	handle {
+		reverse_proxy frontend:80
+	}
+}

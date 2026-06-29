@@ -1,0 +1,13 @@
+# Keep the build context small & reproducible. node_modules and dist are
+# rebuilt inside the image; never ship local builds or secrets.
+node_modules
+**/node_modules
+dist
+**/dist
+**/.env
+**/*.spec.ts
+**/test
+coverage
+**/coverage
+.git
+*.log
