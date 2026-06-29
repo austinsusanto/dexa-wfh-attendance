@@ -1,34 +1,32 @@
 # =============================================================================
-# Dexa WFH Attendance - MySQL 8 (development & deployment)
+# Dexa WFH Attendance - Local dev infrastructure (MySQL 8 + MinIO)
 # =============================================================================
+#
+# This file provisions the BACKING SERVICES the microservices need locally:
+#   - MySQL 8 with one schema per service (identity_db, employees_db,
+#     attendances_db) created by infra/mysql-init on first init (PLAN §10.2).
+#   - MinIO (S3-compatible object storage) for attendance photos (PLAN §10.4).
+#
+# The application services (gateway, identity, employees, attendances) run via
+# npm during development; full containerisation is Tahap 11 (deployment).
 #
 # USAGE
 # -----
-#   1. (Optional) Copy env defaults and adjust for your environment:
-#        cp .env.example .env
-#      All MYSQL_* variables below fall back to sane defaults if no .env exists.
-#
-#   2. Start MySQL in the background:
+#   1. Start infra in the background:
 #        docker compose up -d
-#
-#   3. Check it is healthy (wait until STATUS shows "healthy"):
+#   2. Wait until healthy:
 #        docker compose ps
+#   3. Run per-service migrations + seeders (see backend/README or each service):
+#        (in backend/employees) npm run migration:run && npm run seed
+#        (in backend/identity)   npm run migration:run && npm run seed
+#        (in backend/attendances)npm run migration:run && npm run seed
+#   4. Stop (keep data):          docker compose down
+#      Stop AND wipe everything:  docker compose down -v
 #
-#   4. Connect from the backend using these values (see backend/.env):
-#        DB_HOST=localhost  DB_PORT=${MYSQL_PORT}  DB_USER=${MYSQL_USER}
-#        DB_PASSWORD=${MYSQL_PASSWORD}  DB_NAME=${MYSQL_DATABASE}
+# NOTE: the schema-init script only runs on a FRESH volume. If you still have the
+# monolith-phase volume, recreate it: docker compose down -v && docker compose up -d
 #
-#   5. Open a SQL shell inside the container:
-#        docker compose exec mysql mysql -u${MYSQL_USER} -p${MYSQL_PASSWORD} ${MYSQL_DATABASE}
-#
-#   6. Stop (keep data):           docker compose down
-#      Stop AND wipe the database:  docker compose down -v
-#
-# DEPLOYMENT
-# ----------
-#   - Always override the default passwords via a real .env file (never commit it).
-#   - Data persists in the named volume `dexa_mysql_data` across restarts.
-#   - To bind to a non-default host port (e.g. 3307) set MYSQL_PORT=3307 in .env.
+# MinIO console: http://localhost:9001  (login with MINIO_ROOT_USER/PASSWORD)
 # =============================================================================
 
 services:
@@ -38,18 +36,39 @@ services:
         restart: unless-stopped
         environment:
             MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
-            MYSQL_DATABASE: ${MYSQL_DATABASE:-dexa_wfh}
+            MYSQL_DATABASE: ${MYSQL_DATABASE:-identity_db}
             MYSQL_USER: ${MYSQL_USER:-dexa}
             MYSQL_PASSWORD: ${MYSQL_PASSWORD:-dexa_password}
         ports:
             - "${MYSQL_PORT:-3306}:3306"
         volumes:
             - dexa_mysql_data:/var/lib/mysql
+            - ./infra/mysql-init:/docker-entrypoint-initdb.d:ro
         healthcheck:
             test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
             interval: 10s
             timeout: 5s
             retries: 5
 
+    minio:
+        image: minio/minio:latest
+        container_name: dexa-wfh-minio
+        restart: unless-stopped
+        command: server /data --console-address ":9001"
+        environment:
+            MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+            MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+        ports:
+            - "${MINIO_PORT:-9000}:9000"
+            - "${MINIO_CONSOLE_PORT:-9001}:9001"
+        volumes:
+            - dexa_minio_data:/data
+        healthcheck:
+            test: ["CMD", "mc", "ready", "local"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
 volumes:
     dexa_mysql_data:
+    dexa_minio_data:

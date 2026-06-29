@@ -1,0 +1,71 @@
+{
+	"name": "@dexa/common",
+	"version": "1.0.0",
+	"description": "Shared library for Dexa WFH microservices (enums, types, utils, messaging contracts, HTTP infra)",
+	"private": true,
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		},
+		"./enums": {
+			"types": "./dist/enums/index.d.ts",
+			"default": "./dist/enums/index.js"
+		},
+		"./types": {
+			"types": "./dist/types/index.d.ts",
+			"default": "./dist/types/index.js"
+		},
+		"./utils": {
+			"types": "./dist/utils/index.d.ts",
+			"default": "./dist/utils/index.js"
+		},
+		"./transformers": {
+			"types": "./dist/transformers/index.d.ts",
+			"default": "./dist/transformers/index.js"
+		},
+		"./dto": {
+			"types": "./dist/dto/index.d.ts",
+			"default": "./dist/dto/index.js"
+		},
+		"./messaging": {
+			"types": "./dist/messaging/index.d.ts",
+			"default": "./dist/messaging/index.js"
+		},
+		"./http": {
+			"types": "./dist/http/index.d.ts",
+			"default": "./dist/http/index.js"
+		}
+	},
+	"scripts": {
+		"build": "tsc -p tsconfig.json",
+		"dev": "tsc -p tsconfig.json --watch"
+	},
+	"peerDependencies": {
+		"@nestjs/common": "^11.0.1",
+		"@nestjs/core": "^11.0.1",
+		"@nestjs/microservices": "^11.0.1",
+		"@nestjs/swagger": "^11.4.4",
+		"class-transformer": "^0.5.1",
+		"class-validator": "^0.15.1",
+		"reflect-metadata": "^0.2.2",
+		"rxjs": "^7.8.1",
+		"typeorm": "^1.0.0"
+	},
+	"devDependencies": {
+		"@nestjs/common": "^11.0.1",
+		"@nestjs/core": "^11.0.1",
+		"@nestjs/microservices": "^11.0.1",
+		"@nestjs/swagger": "^11.4.4",
+		"@types/express": "^5.0.0",
+		"@types/node": "^24.0.0",
+		"class-transformer": "^0.5.1",
+		"class-validator": "^0.15.1",
+		"reflect-metadata": "^0.2.2",
+		"rxjs": "^7.8.1",
+		"typeorm": "^1.0.0",
+		"typescript": "^5.7.3"
+	}
+}

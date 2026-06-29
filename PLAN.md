@@ -309,28 +309,150 @@ Konvensi:
 
 ## ⭐ HANDOFF — Status saat ini (untuk sesi/dev berikutnya)
 
-> Sesi pengerjaan aplikasi sudah sangat panjang. **Tahap 10 (microservices) & 11
-> (deployment) akan dikerjakan di sesi baru.** Bagian ini merangkum kondisi terkini
-> agar handoff lengkap.
+> **Update sesi Tahap 10 (microservices):** monolith sudah DIPECAH menjadi
+> microservices (gateway + 3 service TCP + shared lib) dalam npm workspace
+> `backend/`. Semua paket meng-compile, infra (MySQL multi-schema + MinIO) jalan,
+> migrations + seeders sudah dieksekusi. Monolith lama (`backend/src`, dll.)
+> SUDAH DIHAPUS (ada di git history).
+>
+> **Update sesi berikutnya (smoke test LULUS ✅):** fix compile `request.user`
+> (3 file: `common` current-user.decorator + roles.guard, gateway jwt-auth.guard
+> → ketik request sebagai `Request & { user?: AuthenticatedUser }`) sudah
+> diterapkan; `npm run build` di `backend/` **0 error**. 4 service di-boot
+> (identity 4001, employees 4002, attendances 4003, gateway 3000) dan **smoke
+> test end-to-end via gateway LULUS SEMUA**:
+> - auth: login admin/karyawan 200, `/auth/me` 200, password salah 401.
+> - attendances: clock-in 201 + foto ke MinIO & ter-serve di `GET /uploads/*`
+>   (200 image/jpeg); double clock-in 409; `GET /attendances/me` 200; monitoring
+>   admin 200 **dengan enrichment nama karyawan** (`employees.findByIds`).
+> - RBAC: karyawan→GET /attendances 403; admin→POST /attendances 403.
+> - employees: list 200; **saga create** (employee + akun identity → user baru
+>   bisa login 200); duplikat 409; soft delete 200.
+> - nonaktif (9b lintas-service): login nonaktif 403; **mid-session 401** saat
+>   karyawan dinonaktifkan selama sesi aktif (query-on-validate).
+>
+> Data uji yang tertinggal: EMP998/EMP999 (nonaktif) + 1 attendance baru (Budi
+> hari ini, id 7) — bersihkan/seed-ulang saat finalisasi (Tahap 12).
 
-**Sudah selesai (monolith modular + frontend):**
-- **Backend (NestJS, `backend/`)** — Tahap 1–6 + 9b selesai. Modul: `auth`, `users`,
-  `employees`, `attendances`, plus `common`, `config`, `database`.
-  - Entity: `User`, `Employee`, `Attendance` (MySQL 8 via `docker-compose.yml`).
-  - Auth JWT + role guard (`EMPLOYEE`/`HRD_ADMIN`); response envelope; validation;
-    Multer upload foto ke `backend/uploads/attendances/`; Swagger di `/api/docs`.
-  - Migrations (`InitSchema`) + seeder idempotent (`npm run seed`).
-  - Karyawan nonaktif diblokir akses (9b). Test: **unit 14/14, e2e 17/17**.
-- **Frontend (React+Vite+TS+Tailwind, `frontend/`)** — Tahap 7–9 + showcase selesai.
-  Semua halaman: Login, Absen (kamera), Riwayat, Data Karyawan, Monitoring,
-  Cara Kerja, Teknologi, 404. Axios + AuthContext + ProtectedRoute.
-- **Repo:** `github.com/austinsusanto/dexa-wfh-attendance`, branch `main`.
-- **Kredensial demo:** lihat §10. **Konvensi kode:** lihat §0.
-- **Catatan:** DB saat ini berisi beberapa baris uji manual (mis. `Austin
-  Susanto/Susanta`, `Dewi` ter-nonaktif) — bisa dibersihkan/seed ulang di Tahap 12.
+### Keputusan arsitektur Tahap 10 (dikonfirmasi user)
+- **Struktur:** multi-repo per service, semua di dalam `backend/` sebagai **npm
+  workspace** (tiap service paket independen, deps di-hoist & dedupe di
+  `backend/node_modules`). Workspace dipilih untuk **dedupe `@nestjs/*`** (lihat
+  gotcha di bawah). `backend/package.json` = root workspace (scripts `build`,
+  `format`, `test`).
+- **Transport:** **NestJS TCP microservice** (`@nestjs/microservices`). Gateway =
+  satu-satunya HTTP boundary (`/api/v1`), memanggil service via
+  `ClientProxy.send({ cmd }, payload)`. Pola message + kontrak ada di
+  `common/src/messaging/`.
+- **Database:** 1 MySQL, **multi-schema**: `identity_db`, `employees_db`,
+  `attendances_db`. Tanpa FK lintas-service (referensi by id). Tiap service punya
+  migration + seeder sendiri.
+- **File storage:** **MinIO** (S3-compatible). Attendances service upload foto ke
+  bucket `attendance-photos` (key `attendances/<file>`); gateway meng-stream foto
+  di `GET /uploads/*` (di luar prefix `/api/v1`) agar URL foto frontend tetap.
+- **Cross-service flows:** (1) buat karyawan+user = **saga di Employees service**
+  (`EmployeesService.create` → `identity.createUser`; gagal → hard-delete employee
+  kompensasi). (2) blokir nonaktif = **query-on-validate**: gateway guard →
+  `identity.validateToken` → identity → `employees.getActiveStatus` (login 403,
+  mid-session 401 untuk auto-logout). (3) monitoring = **enrichment di Attendances
+  service** via `employees.findByIds`.
 
-**Belum dikerjakan:** pemecahan microservices (Tahap 10), deployment (Tahap 11),
-finalisasi (Tahap 12).
+### Struktur backend baru (`backend/`)
+```
+backend/
+  package.json            # npm workspace root (build/format/test scripts)
+  .prettierrc             # useTabs, tabWidth 4 (shared)
+  common/                 # @dexa/common — shared lib (BUILT ke common/dist)
+    src/{enums,types,utils,transformers,dto,messaging,http}/
+      messaging/          # patterns.ts (cmd consts + CLIENT_TOKEN), contracts.ts
+                          #   (payload/result DTO antar-service), rpc.ts (RpcError
+                          #   + throwRpc/rpc* helpers + sendRpc gateway helper)
+      http/               # interceptor, filter, decorators, RolesGuard,
+                          #   configure-app, swagger (dipakai gateway)
+    package.json          # exports subpaths: @dexa/common/{enums,types,utils,
+                          #   transformers,dto,messaging,http}; nest libs = peerDeps
+  gateway/                # @dexa/gateway — HTTP /api/v1 (port 3000)
+    src/{config,clients,security,auth,employees,attendances,uploads}/
+  identity/               # @dexa/identity — TCP 4001 (auth+users, identity_db)
+  employees/              # @dexa/employees — TCP 4002 (employees_db)
+  attendances/            # @dexa/attendances — TCP 4003 (attendances_db, MinIO)
+```
+Tiap service: `src/{config,clients,...}`, `main.ts` (createMicroservice TCP,
+`import 'dotenv/config'` di baris atas agar `.env` ter-load sebelum baca
+`process.env.TCP_PORT`), `database/{data-source.ts,migrations,seeds}`,
+`.env.example` + `.env` (gitignored, sudah dibuat = copy dari example).
+
+### Infra & data (SUDAH dijalankan sesi ini)
+- `docker-compose.yml` di-update: MySQL 8 (init script `infra/mysql-init/01-create-databases.sql`
+  bikin 3 schema + grant user `dexa`) + **MinIO** (`:9000` API, `:9001` console,
+  `minioadmin`/`minioadmin`, bucket dibuat otomatis on-demand). Volume:
+  `dexa_mysql_data`, `dexa_minio_data`.
+- Sudah `docker compose down -v && up -d` (volume lama di-wipe atas izin user).
+  Kedua container **healthy**. MySQL di host **:3306**.
+- **Migrations + seeders SUDAH dijalankan** (urutan WAJIB: employees → identity →
+  attendances, karena identity/attendances mereferensikan employee id 1..4):
+  - employees: 4 karyawan (EMP001 Budi … EMP004 Dewi), id 1..4.
+  - identity: admin@dexa.com/Admin123 (HRD) + 4 akun karyawan (Employee123),
+    employeeId 1..4.
+  - attendances: upload `seed-sample.jpg` ke MinIO + 6 absensi (employee 1 & 2).
+
+### Status build/test
+- `npm run build` di `backend/` (workspace) meng-compile **common + 4 service** —
+  semua OK SEBELUM fix kecil di bawah; setelah hapus monolith & pindah ke workspace,
+  `common` gagal di 2 baris `request.user` (fix di bawah). **Belum ada test baru**
+  yang diport (Tahap 10.7 / handoff todo).
+
+### ▶ RESUME DI SINI (langkah berikutnya, urut)
+1. **FIX compile common** (`npm run build` gagal di sini): Express `Request` tak
+   punya `.user` (dulu di-augment oleh tipe passport; guard gateway sekarang custom
+   tanpa passport). Edit 2 file → ketik request sebagai `Request & { user?:
+   AuthenticatedUser }`:
+   - `backend/common/src/http/current-user.decorator.ts` →
+     `.getRequest<Request & { user?: AuthenticatedUser }>()`
+   - `backend/common/src/http/roles.guard.ts` → sama pada `getRequest<...>()`.
+   Lalu `cd backend && npm run build` sampai 0 error, dan
+   `node_modules/.bin/prettier --write "common/src/**/*.ts"` (tab).
+2. **Start 4 service** (background, dari `backend/`): tiap service
+   `cd <svc> && node dist/main` — identity(4001), employees(4002),
+   attendances(4003), gateway(3000). (Service sudah bisa boot; gateway sempat error
+   `RolesGuard`/Reflector → SUDAH diperbaiki dengan dedupe workspace + SecurityModule
+   hanya export `JwtModule`, guard di-resolve on-demand.)
+3. **Smoke test end-to-end** via gateway `http://localhost:3000/api/v1`:
+   - `POST /auth/login` admin → token; `GET /auth/me`.
+   - login budi@dexa.com/Employee123 → `POST /attendances` (multipart `photo`) →
+     cek 201 + foto bisa diakses di `GET /uploads/attendances/<file>`.
+   - `GET /attendances` (admin) → cek enrichment nama karyawan muncul.
+   - `GET /employees`, `POST /employees` (cek saga buat user di identity), dll.
+   - cek double clock-in 409, role 403, nonaktif → login 403 / sesi 401.
+4. **Port tests** per service (lihat Tahap 10.7) — unit service + e2e gateway.
+   Test lama monolith sudah terhapus; perlu ditulis ulang per service (jest config
+   sudah ada di tiap `package.json` + `moduleNameMapper` ke `common/dist`).
+5. Lanjut **Tahap 11 (deployment)** & **Tahap 12 (finalisasi)**.
+
+### ⚠️ Gotchas penting (jangan terjebak ulang)
+- **Dedupe `@nestjs`**: WAJIB satu instance `@nestjs/*` untuk seluruh workspace,
+  kalau tidak `instanceof HttpException` (di `sendRpc`/filter) & injeksi `Reflector`
+  gagal lintas paket. Karena itu: install `npm install` SEKALI di `backend/` (root
+  workspace), JANGAN `npm install` per-paket (bikin `node_modules` nested →
+  duplikat). `common` set nest libs sebagai **peerDependencies**.
+- **Type-only import**: param ber-`@Payload()`/`@Body()` yang tipenya interface
+  HARUS `import type { ... }` (isolatedModules + emitDecoratorMetadata), lihat
+  controller2 yang sudah ada.
+- **Error lintas TCP**: service lempar `rpc*()` (RpcException pembawa statusCode);
+  gateway pakai `sendRpc()` yang menerjemahkan balik ke `HttpException` → envelope
+  & status benar. Jangan lempar HttpException langsung di service.
+- **Kontrak frontend tetap**: FE pakai `apiOrigin` (`http://localhost:3000`) +
+  `photoPath` (`uploads/attendances/<file>`) → gateway HARUS serve `/uploads/*`
+  di luar prefix (`app.use('/uploads', ...)` di `gateway/src/main.ts`). FE tidak
+  diubah.
+- **JWT_SECRET** harus identik di `identity/.env` & `gateway/.env`
+  (default contoh: `super_secret_change_me`).
+- **Urutan seed**: employees DULU (id 1..4), baru identity & attendances.
+- **Port 3306 sempat di-hold proxy docker zombie** — sudah dibersihkan; kalau
+  muncul lagi: cari `docker-proxy`/`mysqld` orphan dan kill (butuh root).
+
+**Belum dikerjakan:** fix+smoke test (langkah di atas), tests baru (Tahap 10.7),
+deployment (Tahap 11), finalisasi (Tahap 12).
 
 ---
 
@@ -397,15 +519,25 @@ finalisasi (Tahap 12).
 7. Sesuaikan **frontend**: `VITE_API_BASE_URL` tetap menunjuk ke Gateway (kontrak API
    `/api/v1` tidak berubah dari sisi FE bila Gateway menjaga path & envelope).
 
-**10.7 Checklist:**
-- [ ] Konfirmasi batas service + strategi DB + transport (sync/broker) + storage.
-- [ ] Konversi ke monorepo NestJS + `libs/common`.
-- [ ] Ekstrak Attendances → Employees → Identity menjadi app terpisah.
-- [ ] API Gateway (routing `/api/v1`, verifikasi JWT, CORS, envelope tetap konsisten).
-- [ ] Database per service + migrations + seeder per service.
-- [ ] Ganti alur lintas-service (buat karyawan+user, blokir nonaktif, monitoring).
-- [ ] Foto absensi → object storage (MinIO/S3).
-- [ ] Update test agar tetap lulus (per service); pastikan kontrak `/api/v1` utuh.
+**10.7 Checklist:** (status sesi ini — lihat HANDOFF & "▶ RESUME DI SINI")
+- [x] Konfirmasi batas service + strategi DB + transport + storage. (multi-repo di
+      workspace, TCP, multi-schema, MinIO — lihat keputusan di HANDOFF)
+- [x] Konversi ke **npm workspace** + `@dexa/common` (BUKAN nest monorepo; pilihan
+      user). Monolith lama dihapus.
+- [x] Ekstrak Attendances + Employees + Identity menjadi service TCP terpisah.
+- [x] API Gateway (routing `/api/v1`, verifikasi JWT, RolesGuard, CORS, envelope,
+      Swagger, multipart proxy, serve `/uploads/*` dari MinIO).
+- [x] Database per service (multi-schema) + migrations + seeder per service
+      (sudah dijalankan).
+- [x] Alur lintas-service: saga buat karyawan+user, blokir nonaktif (query-on-validate),
+      monitoring enrichment via `employees.findByIds`.
+- [x] Foto absensi → MinIO (upload di Attendances, serve di gateway).
+- [x] **Smoke test end-to-end LULUS** — fix compile `request.user` (3 file)
+      diterapkan; 4 service boot; semua alur (auth, attendances+foto MinIO, RBAC,
+      saga employees, nonaktif login 403 / mid-session 401) terverifikasi via
+      gateway. Lihat detail di HANDOFF.
+- [ ] Tulis ulang test per service (unit service + e2e gateway); pastikan kontrak
+      `/api/v1` utuh. (test monolith lama sudah terhapus)
 
 ---
 
