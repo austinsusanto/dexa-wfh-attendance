@@ -3,6 +3,7 @@ import {
 	Check,
 	FileText,
 	LayoutDashboard,
+	Network,
 	Server,
 	ShieldCheck,
 	Wrench,
@@ -13,8 +14,10 @@ import {
 	SiEslint,
 	SiJest,
 	SiJsonwebtokens,
+	SiMinio,
 	SiMysql,
 	SiNestjs,
+	SiNginx,
 	SiReact,
 	SiSwagger,
 	SiTypeorm,
@@ -23,6 +26,7 @@ import {
 } from "react-icons/si";
 import { cn } from "../../lib/cn";
 import { env } from "../../config/env";
+import { ClaudeLogo } from "../../components/brand/ClaudeLogo";
 
 const TECH: Record<string, { Icon: IconType; color: string }> = {
 	nestjs: { Icon: SiNestjs, color: "#E0234E" },
@@ -34,6 +38,8 @@ const TECH: Record<string, { Icon: IconType; color: string }> = {
 	vite: { Icon: SiVite, color: "#646CFF" },
 	mysql: { Icon: SiMysql, color: "#4479A1" },
 	docker: { Icon: SiDocker, color: "#2496ED" },
+	minio: { Icon: SiMinio, color: "#C72E49" },
+	nginx: { Icon: SiNginx, color: "#009639" },
 	jest: { Icon: SiJest, color: "#C21325" },
 	eslint: { Icon: SiEslint, color: "#4B32C3" },
 };
@@ -42,13 +48,13 @@ const container = "mx-auto max-w-[1080px] px-7";
 
 const STACK = [
 	{
-		label: "Backend",
+		label: "Backend & Microservices",
 		icon: Server,
 		items: [
 			{
 				key: "nestjs",
 				name: "NestJS",
-				desc: "Framework backend modular.",
+				desc: "Gateway HTTP + 3 service TCP.",
 			},
 			{
 				key: "typescript",
@@ -58,7 +64,7 @@ const STACK = [
 			{
 				key: "typeorm",
 				name: "TypeORM",
-				desc: "ORM + migrations ke MySQL.",
+				desc: "ORM + migrations per service.",
 			},
 			{
 				key: "jwt",
@@ -66,12 +72,17 @@ const STACK = [
 				desc: "Auth token + role-based access.",
 			},
 			{
+				key: "minio",
+				name: "MinIO",
+				desc: "Object storage (S3) foto absensi.",
+			},
+			{
 				key: "swagger",
 				name: "Swagger",
 				desc: "Dokumentasi API interaktif.",
 			},
 		],
-		extra: "Passport · bcrypt (hash password) · class-validator · Multer (upload foto)",
+		extra: "@nestjs/microservices (transport TCP) · Passport · bcrypt · class-validator · multipart proxy di gateway",
 	},
 	{
 		label: "Frontend",
@@ -80,23 +91,36 @@ const STACK = [
 			{ key: "react", name: "React", desc: "UI berbasis komponen." },
 			{ key: "vite", name: "Vite", desc: "Build tool super cepat." },
 		],
-		extra: "React Router (protected routes) · Axios (JWT interceptor) · getUserMedia (kamera)",
+		extra: "React Router (protected routes) · Axios (JWT interceptor) · Tailwind CSS · getUserMedia (kamera)",
 	},
 	{
 		label: "Infra & Tooling",
 		icon: Wrench,
 		items: [
-			{ key: "mysql", name: "MySQL 8", desc: "Database relasional." },
-			{ key: "docker", name: "Docker", desc: "Compose untuk MySQL." },
-			{ key: "typeorm", name: "TypeORM", desc: "Migrations & skema DB." },
-			{ key: "jest", name: "Jest", desc: "Unit + e2e testing." },
+			{
+				key: "mysql",
+				name: "MySQL 8",
+				desc: "Multi-schema, 1 DB per service.",
+			},
+			{ key: "minio", name: "MinIO", desc: "Bucket S3 foto bukti WFH." },
+			{ key: "docker", name: "Docker", desc: "Compose + image deploy." },
+			{ key: "nginx", name: "nginx", desc: "Serve SPA + reverse proxy." },
+			{
+				key: "jest",
+				name: "Jest",
+				desc: "Unit per service + e2e gateway.",
+			},
 			{ key: "eslint", name: "ESLint", desc: "Linting & gaya kode." },
 		],
-		extra: "Database seeder (data demo) · Prettier (format kode)",
+		extra: "Seeder per service (data demo) · Prettier · npm workspace (shared @dexa/common)",
 	},
 ];
 
-const MODULES = ["Auth", "Users", "Employees", "Attendances"];
+const SERVICES = [
+	{ name: "Identity", port: ":4001", db: "identity_db" },
+	{ name: "Employees", port: ":4002", db: "employees_db" },
+	{ name: "Attendances", port: ":4003", db: "attendances_db" },
+];
 
 const SECURITY = [
 	"Password di-hash bcrypt; JWT dengan masa berlaku.",
@@ -116,17 +140,38 @@ const ROLE_MATRIX = [
 
 const STATS = [
 	{
-		big: "Unit + E2E",
-		desc: "Jest, terstruktur per-domain mengikuti batas modul.",
+		big: "48 tests",
+		desc: "Jest — unit tiap service + e2e gateway (supertest), kontrak /api/v1 terjaga.",
 	},
-	{ big: "Migrations", desc: "+ seeder untuk data demo yang reproducible." },
-	{ big: "Modular", desc: "Siap pindah saat menjadi microservice." },
+	{
+		big: "Migrations",
+		desc: "+ seeder per service untuk data demo yang reproducible.",
+	},
+	{
+		big: "Microservices",
+		desc: "Service independen via TCP; gateway satu-satunya HTTP boundary.",
+	},
+];
+
+const CLAUDE_TOOLS = [
+	{
+		name: "Claude Cowork",
+		desc: "Riset design system yang sering digunakan Dexa Group sebagai acuan arah visual.",
+	},
+	{
+		name: "Claude Design",
+		desc: "Membantu proses desain antarmuka web — layout, komponen, dan alur halaman.",
+	},
+	{
+		name: "Claude Code",
+		desc: "Membantu penulisan kode di backend (NestJS) maupun frontend (React).",
+	},
 ];
 
 interface ErdRow {
 	name: string;
 	note?: string;
-	badge?: "PK" | "FK";
+	badge?: "PK" | "REF";
 }
 
 const ERD: { title: string; highlight?: boolean; rows: ErdRow[] }[] = [
@@ -137,7 +182,7 @@ const ERD: { title: string; highlight?: boolean; rows: ErdRow[] }[] = [
 			{ name: "email", note: "unique" },
 			{ name: "password", note: "bcrypt" },
 			{ name: "role", note: "enum" },
-			{ name: "employee_id", badge: "FK" },
+			{ name: "employee_id", badge: "REF" },
 			{ name: "timestamps" },
 		],
 	},
@@ -158,7 +203,7 @@ const ERD: { title: string; highlight?: boolean; rows: ErdRow[] }[] = [
 		title: "attendances",
 		rows: [
 			{ name: "id", badge: "PK" },
-			{ name: "employee_id", badge: "FK" },
+			{ name: "employee_id", badge: "REF" },
 			{ name: "attendance_date" },
 			{ name: "checked_in_at", note: "server" },
 			{ name: "photo_path · type", note: "enum" },
@@ -198,14 +243,14 @@ function ErdCard({
 						key={row.name}
 						className={cn(
 							"flex items-center justify-between px-4 py-1.5 text-[12.5px]",
-							row.badge === "FK" && "bg-[#FDF6F5]",
+							row.badge === "REF" && "bg-[#FDF6F5]",
 						)}
 					>
 						<span
 							className={cn(
 								row.badge === "PK" &&
 									"font-semibold text-ink-strong",
-								row.badge === "FK" &&
+								row.badge === "REF" &&
 									"font-semibold text-primary-700",
 								!row.badge && "text-ink",
 							)}
@@ -221,7 +266,7 @@ function ErdCard({
 							<span
 								className={cn(
 									"text-[11px] font-semibold",
-									row.badge === "FK"
+									row.badge === "REF"
 										? "text-primary"
 										: "text-ink-muted",
 								)}
@@ -314,8 +359,8 @@ export function TechPage() {
 					Arsitektur Sistem
 				</h2>
 				<p className="mb-6 text-sm text-ink-muted">
-					Monolith modular sekarang → siap diekstrak menjadi
-					microservices.
+					Microservices — API Gateway + 3 service independen yang
+					berkomunikasi via TCP, dengan database-per-service.
 				</p>
 				<div className="rounded-2xl border border-line bg-surface-2 p-7">
 					<div className="mb-3 text-center text-[11.5px] font-bold uppercase tracking-wide text-ink-muted">
@@ -346,45 +391,57 @@ export function TechPage() {
 						<ArrowDown className="size-5" />
 					</div>
 
-					{/* API */}
+					{/* Gateway — the single HTTP boundary */}
 					<div className="my-2 rounded-2xl border-[1.5px] border-primary bg-surface p-4.5">
 						<div className="text-center text-xs font-bold text-primary">
-							API — NestJS · /api/v1
+							API Gateway — NestJS · /api/v1 (satu-satunya HTTP)
 						</div>
-						<div className="mb-3.5 mt-1 text-center text-[11.5px] text-ink-muted">
-							JWT auth guard · role guard · response envelope
-							interceptor · validation pipe · exception filter
+						<div className="mt-1 text-center text-[11.5px] text-ink-muted">
+							JWT auth guard · role guard · response envelope ·
+							validation pipe · exception filter · CORS · serve
+							/uploads
 						</div>
-						<div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-							{MODULES.map((m) => (
-								<div
-									key={m}
-									className="rounded-[9px] border border-dashed border-primary-200 bg-[#FDF6F5] px-2 py-3 text-center"
-								>
-									<div className="text-[13px] font-bold text-primary-700">
-										{m}
-									</div>
-									<div className="mt-0.5 text-[10.5px] text-primary-400">
-										calon service
-									</div>
+					</div>
+					<div className="flex items-center justify-center gap-2 text-line-strong">
+						<Network className="size-4" />
+						<span className="text-[10.5px] font-semibold uppercase tracking-wide text-ink-muted">
+							TCP · ClientProxy.send(cmd)
+						</span>
+					</div>
+
+					{/* Services — one box per microservice */}
+					<div className="my-2 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+						{SERVICES.map((s) => (
+							<div
+								key={s.name}
+								className="rounded-[11px] border border-primary-200 bg-[#FDF6F5] px-2 py-3.5 text-center"
+							>
+								<div className="text-[13px] font-bold text-primary-700">
+									{s.name}{" "}
+									<span className="font-mono text-[10.5px] font-medium text-primary-400">
+										{s.port}
+									</span>
 								</div>
-							))}
-						</div>
+								<div className="mt-0.5 font-mono text-[10.5px] text-primary-400">
+									{s.db}
+								</div>
+							</div>
+						))}
 					</div>
 					<div className="flex justify-center text-line-strong">
 						<ArrowDown className="size-5" />
 					</div>
 
-					{/* Data */}
+					{/* Data — per-service DB + object storage */}
 					<div className="mt-2 flex flex-col justify-center gap-4 sm:flex-row">
 						{[
 							{
-								t: "MySQL 8",
-								s: "users · employees · attendances",
+								t: "MySQL 8 · multi-schema",
+								s: "3 database terpisah · referensi by id (tanpa FK lintas-service)",
 							},
 							{
-								t: "File Storage",
-								s: "foto disimpan di disk · /uploads",
+								t: "MinIO (S3)",
+								s: "bucket attendance-photos · di-serve via /uploads",
 							},
 						].map((c) => (
 							<div
@@ -409,7 +466,9 @@ export function TechPage() {
 					Desain Database (ERD)
 				</h2>
 				<p className="mb-6 text-sm text-ink-muted">
-					Tiga tabel inti dengan relasi terdefinisi jelas.
+					Tiga tabel inti, kini terpisah di 3 schema (1 DB per
+					service). Relasi lintas-service jadi referensi by id — tanpa
+					FK database antar-service.
 				</p>
 				<div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3">
 					{ERD.map((table) => (
@@ -418,15 +477,20 @@ export function TechPage() {
 				</div>
 				<div className="mt-4.5 flex flex-wrap gap-3 text-[12.5px]">
 					<span className="rounded-lg bg-[#F1F2F4] px-3.5 py-2 text-ink">
-						<b className="text-ink-strong">users</b> 1 — 1{" "}
-						<b className="text-primary">employees</b>{" "}
-						<span className="text-ink-muted">
-							akun login ↔ karyawan
-						</span>
+						<b className="text-ink-strong">users</b>{" "}
+						<span className="font-mono text-[11px]">
+							employee_id
+						</span>{" "}
+						→ <b className="text-primary">employees</b>{" "}
+						<span className="text-ink-muted">(ref by id)</span>
 					</span>
 					<span className="rounded-lg bg-[#F1F2F4] px-3.5 py-2 text-ink">
-						<b className="text-primary">employees</b> 1 — N{" "}
-						<b className="text-ink-strong">attendances</b>
+						<b className="text-ink-strong">attendances</b>{" "}
+						<span className="font-mono text-[11px]">
+							employee_id
+						</span>{" "}
+						→ <b className="text-primary">employees</b>{" "}
+						<span className="text-ink-muted">(ref by id)</span>
 					</span>
 				</div>
 				<div className="mt-3.5 flex items-center gap-2.5 rounded-xl border border-[#BFE3CE] bg-success-bg px-4 py-3.5">
@@ -560,6 +624,44 @@ export function TechPage() {
 							</div>
 						</div>
 					))}
+				</div>
+			</section>
+
+			{/* Built with Claude */}
+			<section className={`${container} py-8 pb-16`}>
+				<div className="overflow-hidden rounded-2xl border border-line">
+					<div
+						className="flex items-center gap-4 border-b border-line px-6 py-5"
+						style={{ backgroundColor: "#FBF1EC" }}
+					>
+						<div className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-line bg-white">
+							<ClaudeLogo size={30} />
+						</div>
+						<div>
+							<h2 className="text-[20px] font-bold text-ink-strong">
+								Dibangun dengan bantuan Claude AI
+							</h2>
+							<p className="mt-0.5 text-[13px] leading-relaxed text-ink-muted">
+								Tiga produk Claude dari Anthropic dipakai di
+								sepanjang pengerjaan proyek ini.
+							</p>
+						</div>
+					</div>
+					<div className="grid grid-cols-1 gap-px bg-line sm:grid-cols-3">
+						{CLAUDE_TOOLS.map((tool) => (
+							<div key={tool.name} className="bg-surface p-5">
+								<div className="mb-3 flex items-center gap-2.5">
+									<ClaudeLogo size={20} />
+									<span className="text-[14.5px] font-bold text-ink-strong">
+										{tool.name}
+									</span>
+								</div>
+								<p className="text-[13px] leading-relaxed text-ink-muted">
+									{tool.desc}
+								</p>
+							</div>
+						))}
+					</div>
 				</div>
 			</section>
 		</div>

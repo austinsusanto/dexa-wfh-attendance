@@ -315,19 +315,20 @@ Konvensi:
 > (login HRD `admin@dexa.com`/`Admin123`, karyawan `budi@dexa.com`/`Employee123`).
 >
 > **Yang TERSISA (untuk agen baru, prioritas atas→bawah):**
-> 1. **Bug timezone clock-in/clock-out** (mudah, berdampak ke demo) — server di
->    container memakai **UTC** untuk `attendance_date`
->    ([attendances.service.ts](backend/attendances/src/attendances/attendances.service.ts)
->    `toDateString(new Date())` + [date.util.ts](backend/common/src/utils/date.util.ts)),
->    frontend menghitung "hari ini" pakai timezone browser/WIB
->    ([datetime.ts](frontend/src/lib/datetime.ts) `todayString()`). Akibat: saat
->    absen di jam dengan beda-tanggal UTC↔WIB, dashboard tak mendeteksi punch →
->    tak bisa lanjut Clock Out. **Bukan** bug khusus HF (muncul di container mana
->    pun). Arah fix: set `TZ`/timezone server konsisten, atau samakan basis
->    tanggal FE↔BE. Setelah fix, redeploy HF (push ke remote `space`).
-> 2. **Tahap 10.7 — tulis ulang test per service** (unit service + e2e gateway).
->    Test monolith lama sudah terhapus; jest config + `moduleNameMapper` ke
->    `common/dist` sudah ada di tiap `package.json`.
+> 1. ✅ **Bug timezone clock-in/clock-out — SUDAH DI-FIX.** Kini FE & BE sama-sama
+>    menghitung "hari ini" di **business timezone WIB (`Asia/Jakarta`)** secara
+>    eksplisit via `Intl` (tak bergantung `TZ` container / TZ browser). BE:
+>    [date.util.ts](backend/common/src/utils/date.util.ts) `APP_TIMEZONE` +
+>    `toDateString` pakai `Intl.DateTimeFormat('en-CA', { timeZone })`. FE:
+>    [datetime.ts](frontend/src/lib/datetime.ts) `APP_TIMEZONE` + `todayString()`
+>    serta semua formatter tampilan (`formatClock`/`formatDateLong`/
+>    `formatTimeShort`/`formatDateShort`) dipin ke WIB agar konsisten dengan label
+>    "Waktu server". Terverifikasi: pada instant beda-tanggal UTC↔WIB, FE & BE
+>    menghasilkan tanggal yang sama. **TODO saat redeploy:** push ke remote `space`.
+> 2. ✅ **Tahap 10.7 — test per service SUDAH ditulis ulang & LULUS (48 test).**
+>    Unit service (identity 14, employees 15, attendances 12) + e2e gateway 7
+>    (supertest + AppModule, 3 ClientProxy di-mock). Root `npm test` menjalankan
+>    semuanya. Detail di checklist Tahap 10.7.
 > 3. **Tahap 12 — finalisasi** (README portofolio + diagram, bersihkan/seed-ulang
 >    data demo, uji end-to-end). Lihat checklist Tahap 12 di bawah.
 >
@@ -543,8 +544,16 @@ data demo + uji end-to-end). Lihat blok HANDOFF di atas.
       diterapkan; 4 service boot; semua alur (auth, attendances+foto MinIO, RBAC,
       saga employees, nonaktif login 403 / mid-session 401) terverifikasi via
       gateway. Lihat detail di HANDOFF.
-- [ ] Tulis ulang test per service (unit service + e2e gateway); pastikan kontrak
-      `/api/v1` utuh. (test monolith lama sudah terhapus)
+- [x] Tulis ulang test per service (unit service + e2e gateway); kontrak `/api/v1`
+      terverifikasi. **48 test LULUS**: identity 14 (`auth.service` login/validateToken
+      + `users.service`), employees 15 (`employees.service` saga create/kompensasi,
+      CRUD, soft-delete, findByIds, getActiveStatus), attendances 12
+      (`attendances.service` validasi foto/mime/ukuran, double-punch 409, orphan
+      cleanup, RBAC findOne, enrichment), gateway e2e 7 (`test/auth/auth.e2e-spec.ts`
+      via supertest + AppModule asli dengan 3 ClientProxy di-mock: login envelope,
+      validasi 400, RpcError→401, /me 401/200, RBAC employees 403/200). Helper
+      `test/utils/create-test-app.ts` + `test/jest-e2e.json`. Root `npm test`
+      menjalankan unit 3 service + e2e gateway.
 
 ---
 
@@ -638,12 +647,26 @@ data demo + uji end-to-end). Lihat blok HANDOFF di atas.
 ---
 
 ### Tahap 12 — Finalisasi
-- [ ] README lengkap (arsitektur microservices, diagram, setup lokal & deploy,
-      kredensial demo, cara run tiap service, link demo).
-- [ ] `.env.example` tiap service & frontend.
-- [ ] Bersihkan data uji / seed ulang agar demo bersih (lihat catatan handoff).
-- [ ] Uji end-to-end semua alur (lokal & ter-deploy).
-- [ ] (Opsional) Diagram arsitektur final + screenshot.
+- [x] README lengkap (arsitektur microservices + diagram ASCII, setup lokal per
+      service, urutan migrasi+seed, cara test, kredensial & link demo, pointer ke
+      DEPLOYMENT.md, catatan teknis termasuk fix timezone WIB). README lama (deskripsi
+      monolith) ditulis ulang; front matter HF tetap di baris atas.
+- [x] `.env.example` tiap service (`backend/{gateway,identity,employees,attendances}/
+      .env.example`) & frontend (`frontend/.env.example`) — sudah ada dari Tahap 10–11.
+- [x] Data demo bersih: seeder idempotent + self-skip (re-run aman); test baru semuanya
+      mock (tidak menulis ke DB) → tidak mengotori data.
+- [~] Uji end-to-end: **48 test otomatis LULUS** (unit 3 service + e2e gateway),
+      **build penuh backend + frontend LULUS**, logika timezone WIB terverifikasi
+      terisolasi (FE & BE sepakat pada instant beda-tanggal UTC↔WIB). **Live full-stack
+      run TERBLOKIR** oleh gotcha "docker-proxy/mysqld zombie" yang nge-hold `:3306`
+      walau `docker ps -a` kosong — perlu `sudo systemctl restart docker` (atau kill
+      orphan) untuk membersihkan. Smoke test prod lokal & HF sebelumnya sudah LULUS
+      (lihat Tahap 11).
+- [ ] (Opsional) Diagram arsitektur final (gambar) + screenshot. (diagram ASCII sudah
+      di README; versi gambar opsional belum dibuat)
+
+> **TODO redeploy:** push ke remote `space` (Hugging Face) agar fix timezone & README
+> baru ikut live.
 
 ---
 
