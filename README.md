@@ -1,8 +1,3 @@
-<!--
-The YAML block below is read by Hugging Face Spaces to configure the demo
-deployment (Docker SDK, port 7860). It is harmless on GitHub. See DEPLOYMENT.md
-(section "Hugging Face Spaces") for how the live demo is built and pushed.
--->
 ---
 title: Dexa WFH Attendance
 emoji: 🏢
@@ -11,8 +6,14 @@ colorTo: indigo
 sdk: docker
 app_port: 7860
 pinned: false
-short_description: Absensi WFH & Monitoring Karyawan (NestJS microservices + React)
+short_description: Absensi WFH & Monitoring Karyawan (NestJS + React)
 ---
+
+<!--
+The YAML block above is read by Hugging Face Spaces to configure the demo
+deployment (Docker SDK, port 7860). It MUST be the very first thing in this file.
+It is harmless on GitHub. See DEPLOYMENT.md ("Hugging Face Spaces") for details.
+-->
 
 # dexa-wfh-attendance
 
