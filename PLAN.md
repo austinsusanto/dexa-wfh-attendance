@@ -307,32 +307,32 @@ Konvensi:
 
 ---
 
-## ⭐ HANDOFF — Status saat ini (untuk sesi/dev berikutnya)
+## ⭐ HANDOFF — Status saat ini (BACA INI DULU sebelum lanjut)
 
-> **Update sesi Tahap 10 (microservices):** monolith sudah DIPECAH menjadi
-> microservices (gateway + 3 service TCP + shared lib) dalam npm workspace
-> `backend/`. Semua paket meng-compile, infra (MySQL multi-schema + MinIO) jalan,
-> migrations + seeders sudah dieksekusi. Monolith lama (`backend/src`, dll.)
-> SUDAH DIHAPUS (ada di git history).
+> **RINGKAS:** Tahap **0–11 SELESAI**. Aplikasi **microservices + frontend sudah
+> LIVE & bisa diakses publik** di Hugging Face Spaces:
+> **https://austinsusanto-dexa-wfh-attendance.hf.space**
+> (login HRD `admin@dexa.com`/`Admin123`, karyawan `budi@dexa.com`/`Employee123`).
 >
-> **Update sesi berikutnya (smoke test LULUS ✅):** fix compile `request.user`
-> (3 file: `common` current-user.decorator + roles.guard, gateway jwt-auth.guard
-> → ketik request sebagai `Request & { user?: AuthenticatedUser }`) sudah
-> diterapkan; `npm run build` di `backend/` **0 error**. 4 service di-boot
-> (identity 4001, employees 4002, attendances 4003, gateway 3000) dan **smoke
-> test end-to-end via gateway LULUS SEMUA**:
-> - auth: login admin/karyawan 200, `/auth/me` 200, password salah 401.
-> - attendances: clock-in 201 + foto ke MinIO & ter-serve di `GET /uploads/*`
->   (200 image/jpeg); double clock-in 409; `GET /attendances/me` 200; monitoring
->   admin 200 **dengan enrichment nama karyawan** (`employees.findByIds`).
-> - RBAC: karyawan→GET /attendances 403; admin→POST /attendances 403.
-> - employees: list 200; **saga create** (employee + akun identity → user baru
->   bisa login 200); duplikat 409; soft delete 200.
-> - nonaktif (9b lintas-service): login nonaktif 403; **mid-session 401** saat
->   karyawan dinonaktifkan selama sesi aktif (query-on-validate).
+> **Yang TERSISA (untuk agen baru, prioritas atas→bawah):**
+> 1. **Bug timezone clock-in/clock-out** (mudah, berdampak ke demo) — server di
+>    container memakai **UTC** untuk `attendance_date`
+>    ([attendances.service.ts](backend/attendances/src/attendances/attendances.service.ts)
+>    `toDateString(new Date())` + [date.util.ts](backend/common/src/utils/date.util.ts)),
+>    frontend menghitung "hari ini" pakai timezone browser/WIB
+>    ([datetime.ts](frontend/src/lib/datetime.ts) `todayString()`). Akibat: saat
+>    absen di jam dengan beda-tanggal UTC↔WIB, dashboard tak mendeteksi punch →
+>    tak bisa lanjut Clock Out. **Bukan** bug khusus HF (muncul di container mana
+>    pun). Arah fix: set `TZ`/timezone server konsisten, atau samakan basis
+>    tanggal FE↔BE. Setelah fix, redeploy HF (push ke remote `space`).
+> 2. **Tahap 10.7 — tulis ulang test per service** (unit service + e2e gateway).
+>    Test monolith lama sudah terhapus; jest config + `moduleNameMapper` ke
+>    `common/dist` sudah ada di tiap `package.json`.
+> 3. **Tahap 12 — finalisasi** (README portofolio + diagram, bersihkan/seed-ulang
+>    data demo, uji end-to-end). Lihat checklist Tahap 12 di bawah.
 >
-> Data uji yang tertinggal: EMP998/EMP999 (nonaktif) + 1 attendance baru (Budi
-> hari ini, id 7) — bersihkan/seed-ulang saat finalisasi (Tahap 12).
+> **Cara menjalankan & deploy** ada di blok "▶ CARA MENJALANKAN" & "▶ DEPLOY" di
+> bawah. Detail deploy lengkap di **`DEPLOYMENT.md`**.
 
 ### Keputusan arsitektur Tahap 10 (dikonfirmasi user)
 - **Struktur:** multi-repo per service, semua di dalam `backend/` sebagai **npm
@@ -397,37 +397,37 @@ Tiap service: `src/{config,clients,...}`, `main.ts` (createMicroservice TCP,
   - attendances: upload `seed-sample.jpg` ke MinIO + 6 absensi (employee 1 & 2).
 
 ### Status build/test
-- `npm run build` di `backend/` (workspace) meng-compile **common + 4 service** —
-  semua OK SEBELUM fix kecil di bawah; setelah hapus monolith & pindah ke workspace,
-  `common` gagal di 2 baris `request.user` (fix di bawah). **Belum ada test baru**
-  yang diport (Tahap 10.7 / handoff todo).
+- `npm run build` di `backend/` (workspace) meng-compile **common + 4 service**,
+  **0 error**. Image deploy (root `Dockerfile` all-in-one + per-service
+  `backend/Dockerfile`) juga ter-build OK.
+- **Belum ada test otomatis baru** yang diport (Tahap 10.7 / todo). Verifikasi
+  sejauh ini = smoke test manual (LULUS di stack prod lokal & di image HF).
 
-### ▶ RESUME DI SINI (langkah berikutnya, urut)
-1. **FIX compile common** (`npm run build` gagal di sini): Express `Request` tak
-   punya `.user` (dulu di-augment oleh tipe passport; guard gateway sekarang custom
-   tanpa passport). Edit 2 file → ketik request sebagai `Request & { user?:
-   AuthenticatedUser }`:
-   - `backend/common/src/http/current-user.decorator.ts` →
-     `.getRequest<Request & { user?: AuthenticatedUser }>()`
-   - `backend/common/src/http/roles.guard.ts` → sama pada `getRequest<...>()`.
-   Lalu `cd backend && npm run build` sampai 0 error, dan
-   `node_modules/.bin/prettier --write "common/src/**/*.ts"` (tab).
-2. **Start 4 service** (background, dari `backend/`): tiap service
-   `cd <svc> && node dist/main` — identity(4001), employees(4002),
-   attendances(4003), gateway(3000). (Service sudah bisa boot; gateway sempat error
-   `RolesGuard`/Reflector → SUDAH diperbaiki dengan dedupe workspace + SecurityModule
-   hanya export `JwtModule`, guard di-resolve on-demand.)
-3. **Smoke test end-to-end** via gateway `http://localhost:3000/api/v1`:
-   - `POST /auth/login` admin → token; `GET /auth/me`.
-   - login budi@dexa.com/Employee123 → `POST /attendances` (multipart `photo`) →
-     cek 201 + foto bisa diakses di `GET /uploads/attendances/<file>`.
-   - `GET /attendances` (admin) → cek enrichment nama karyawan muncul.
-   - `GET /employees`, `POST /employees` (cek saga buat user di identity), dll.
-   - cek double clock-in 409, role 403, nonaktif → login 403 / sesi 401.
-4. **Port tests** per service (lihat Tahap 10.7) — unit service + e2e gateway.
-   Test lama monolith sudah terhapus; perlu ditulis ulang per service (jest config
-   sudah ada di tiap `package.json` + `moduleNameMapper` ke `common/dist`).
-5. Lanjut **Tahap 11 (deployment)** & **Tahap 12 (finalisasi)**.
+### ▶ CARA MENJALANKAN (dev lokal — untuk agen baru)
+1. **Infra:** `docker compose up -d` (root) → MySQL 8 multi-schema (:3306) + MinIO
+   (:9000/:9001). Tunggu `docker compose ps` healthy.
+2. **Migrasi + seed** (urutan WAJIB, dari `backend/`): untuk tiap service **dengan
+   urutan employees → identity → attendances**:
+   `npm run migration:run -w @dexa/<svc>` lalu `npm run seed -w @dexa/<svc>`.
+   (employees DULU karena id 1..4 dirujuk identity & attendances.)
+3. **Jalankan service** (4 terminal, dari `backend/`): `npm run start:dev -w
+   @dexa/identity` (4001), `… @dexa/employees` (4002), `… @dexa/attendances`
+   (4003), `… @dexa/gateway` (3000, satu-satunya HTTP).
+4. **Frontend:** `cd frontend && npm run dev` (Vite :5173 → proxy ke gateway
+   :3000). Login dengan kredensial demo di §10.
+
+### ▶ DEPLOY (sudah jalan — detail di `DEPLOYMENT.md`)
+- **LIVE: Hugging Face Spaces** (gratis, tanpa kartu). Image **all-in-one** (root
+  `Dockerfile` + `huggingface/start.sh`: MySQL+MinIO+3 service+gateway+nginx dalam
+  1 container, port 7860). Deploy = `git push` ke remote `space`
+  (`huggingface.co/spaces/austinsusanto/dexa-wfh-attendance`). Storage ephemeral →
+  reset ke seed tiap restart. Uji lokal: `docker build -t x . && docker run -p
+  7860:7860 x` → buka http://localhost:7860.
+- **Alternatif teruji (belum dipakai): VM + Docker-Compose** —
+  `docker-compose.prod.yml` (mysql+minio+migrate one-shot+3 service+gateway+
+  frontend+**Caddy** HTTPS) + `Caddyfile` + `.env.prod.example`. Jalankan:
+  `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build`.
+  Belum di-deploy ke VM nyata karena kendala kartu/akun cloud (Oracle/Azure/GCP).
 
 ### ⚠️ Gotchas penting (jangan terjebak ulang)
 - **Dedupe `@nestjs`**: WAJIB satu instance `@nestjs/*` untuk seluruh workspace,
@@ -448,11 +448,18 @@ Tiap service: `src/{config,clients,...}`, `main.ts` (createMicroservice TCP,
 - **JWT_SECRET** harus identik di `identity/.env` & `gateway/.env`
   (default contoh: `super_secret_change_me`).
 - **Urutan seed**: employees DULU (id 1..4), baru identity & attendances.
-- **Port 3306 sempat di-hold proxy docker zombie** — sudah dibersihkan; kalau
-  muncul lagi: cari `docker-proxy`/`mysqld` orphan dan kill (butuh root).
+- **Port 3306 di-hold proxy docker zombie** — kambuh tiap kali container compose
+  dihapus paksa: proses `docker-proxy`/`mysqld` orphan tertinggal nge-bind :3306
+  (terlihat di `ss -ltnp` walau `docker ps` kosong). Bersihkan dengan **root**:
+  `sudo systemctl restart docker` atau `sudo kill <pid docker-proxy & mysqld orphan>`.
+- **Image deploy = Ubuntu 22.04 di SEMUA stage** (root `Dockerfile`) supaya ABI
+  native `bcrypt` cocok; mencampur base Debian+Ubuntu bisa `GLIBC` error saat run.
+- **HF Spaces front matter** (`README.md`) WAJIB di baris paling atas file &
+  `short_description` ≤ 60 char, kalau tidak push ditolak / metadata tak terbaca.
 
-**Belum dikerjakan:** fix+smoke test (langkah di atas), tests baru (Tahap 10.7),
-deployment (Tahap 11), finalisasi (Tahap 12).
+**Belum dikerjakan (untuk agen baru):** bug timezone clock-in/out (prioritas 1),
+tests baru (Tahap 10.7), finalisasi (Tahap 12 — README portofolio + bersih-bersih
+data demo + uji end-to-end). Lihat blok HANDOFF di atas.
 
 ---
 
@@ -585,7 +592,24 @@ deployment (Tahap 11), finalisasi (Tahap 12).
 **11.8 (Opsional) CI/CD:**
 - GitHub Actions: lint+test → build image → push registry → deploy.
 
-**11.9 Checklist:** (artefak SELESAI + smoke-test lokal LULUS; deploy ke VM = langkah user, lihat `DEPLOYMENT.md`)
+> **✅ TER-DEPLOY & LIVE (sesi ini).** Demo publik berjalan di **Hugging Face
+> Spaces** (gratis, tanpa kartu): `https://austinsusanto-dexa-wfh-attendance.hf.space`
+> — build sukses, web bisa diakses, login & alur utama jalan. Dipilih karena
+> Oracle/Azure/GCP semua mentok verifikasi kartu/akun (lihat catatan jalur deploy
+> di bawah). Jalur VM/Docker-Compose (Caddy + 6 service terpisah) tetap disimpan
+> sebagai Option A yang teruji lokal — lihat `DEPLOYMENT.md`.
+>
+> **Catatan bug diketahui (belum di-fix, atas permintaan user):** status
+> clock-in/clock-out tidak terdeteksi saat absen di jam dengan beda-tanggal UTC↔WIB.
+> Penyebab: backend di container memakai timezone **UTC** untuk `attendance_date`
+> ([attendances.service.ts](backend/attendances/src/attendances/attendances.service.ts)
+> + [date.util.ts](backend/common/src/utils/date.util.ts)), sedang frontend
+> menghitung "hari ini" pakai timezone browser (WIB) di
+> [datetime.ts](frontend/src/lib/datetime.ts) `todayString()`. BUKAN bug khusus HF
+> — akan muncul juga di deploy container mana pun. Fix arah: set `TZ` server /
+> samakan basis tanggal. → kandidat Tahap 12.
+
+**11.9 Checklist:** (artefak SELESAI + smoke-test lokal LULUS + **LIVE di HF Spaces**)
 - [x] Dockerfile tiap service + frontend (+ `.dockerignore`). (satu `backend/Dockerfile`
       multi-stage multi-target: builder→proddeps→runtime per service; `frontend/Dockerfile`
       build Vite→nginx + `nginx.conf` SPA fallback. Keduanya ter-build OK.)
@@ -605,8 +629,11 @@ deployment (Tahap 11), finalisasi (Tahap 12).
       password salah 401, GET employees, monitoring + enrichment, RBAC 403, clock-in multipart,
       double clock-in 409, foto /uploads 200, frontend SPA 200). Pilihan host final:
       **Oracle Cloud Always Free VM + DuckDNS** — runbook lengkap di `DEPLOYMENT.md`.
-- [ ] Smoke test di lingkungan ter-deploy (VM) — menunggu provisioning VM oleh user
-      (panduan langkah-demi-langkah di `DEPLOYMENT.md`).
+- [x] **Ter-deploy & smoke test di lingkungan publik LULUS** — live di **Hugging
+      Face Spaces** via image all-in-one (root `Dockerfile` + `huggingface/start.sh`:
+      MySQL+MinIO+3 service TCP+gateway+nginx dalam 1 container, port 7860). Build
+      sukses, web diakses, login + alur utama OK. (Jalur VM/Compose tetap teruji
+      lokal sebagai Option A; belum di-deploy ke VM karena kendala kartu/akun.)
 
 ---
 
