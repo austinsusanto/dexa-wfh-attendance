@@ -1,4 +1,3 @@
-import { UserRole } from '../enums/app.enum';
 import { AttendanceType } from '../enums/attendance.enum';
 import { AuthenticatedUser } from '../types/auth.types';
 import { PaginatedResult } from '../types/pagination.types';

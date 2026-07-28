@@ -17,24 +17,24 @@ import { UserRole } from '@dexa/common/enums';
 @Entity('users')
 export class User {
 	@PrimaryGeneratedColumn()
-	id: number;
+	id!: number;
 
 	@Column({ type: 'varchar', length: 150, unique: true })
-	email: string;
+	email!: string;
 
 	// Excluded from query results by default; auth opts in via addSelect.
 	@Column({ type: 'varchar', length: 255, select: false })
-	password: string;
+	password!: string;
 
 	@Column({ type: 'enum', enum: UserRole, default: UserRole.EMPLOYEE })
-	role: UserRole;
+	role!: UserRole;
 
 	@Column({ name: 'employee_id', type: 'int', nullable: true })
-	employeeId: number | null;
+	employeeId!: number | null;
 
 	@CreateDateColumn({ name: 'created_at' })
-	createdAt: Date;
+	createdAt!: Date;
 
 	@UpdateDateColumn({ name: 'updated_at' })
-	updatedAt: Date;
+	updatedAt!: Date;
 }

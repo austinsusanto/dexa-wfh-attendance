@@ -28,27 +28,27 @@ class EnvironmentVariables {
 
 	@IsNotEmpty()
 	@IsString()
-	DB_HOST: string;
+	DB_HOST!: string;
 
 	@IsNotEmpty()
 	@IsString()
-	DB_PORT: string;
+	DB_PORT!: string;
 
 	@IsNotEmpty()
 	@IsString()
-	DB_USERNAME: string;
+	DB_USERNAME!: string;
 
 	@IsNotEmpty()
 	@IsString()
-	DB_PASSWORD: string;
+	DB_PASSWORD!: string;
 
 	@IsNotEmpty()
 	@IsString()
-	DB_DATABASE: string;
+	DB_DATABASE!: string;
 
 	@IsNotEmpty()
 	@IsString()
-	JWT_SECRET: string;
+	JWT_SECRET!: string;
 
 	@IsOptional()
 	@IsString()

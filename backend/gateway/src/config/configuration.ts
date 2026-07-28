@@ -28,7 +28,7 @@ class EnvironmentVariables {
 
 	@IsNotEmpty()
 	@IsString()
-	JWT_SECRET: string;
+	JWT_SECRET!: string;
 
 	@IsOptional()
 	@IsString()
@@ -56,19 +56,19 @@ class EnvironmentVariables {
 
 	@IsNotEmpty()
 	@IsString()
-	MINIO_ENDPOINT: string;
+	MINIO_ENDPOINT!: string;
 
 	@IsNotEmpty()
 	@IsString()
-	MINIO_PORT: string;
+	MINIO_PORT!: string;
 
 	@IsNotEmpty()
 	@IsString()
-	MINIO_ACCESS_KEY: string;
+	MINIO_ACCESS_KEY!: string;
 
 	@IsNotEmpty()
 	@IsString()
-	MINIO_SECRET_KEY: string;
+	MINIO_SECRET_KEY!: string;
 
 	@IsOptional()
 	@IsString()

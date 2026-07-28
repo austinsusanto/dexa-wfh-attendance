@@ -17,39 +17,39 @@ export class CreateEmployeeDto {
 	@IsString()
 	@IsNotEmpty()
 	@MaxLength(30)
-	employeeNumber: string;
+	employeeNumber!: string;
 
 	@ApiProperty({ example: 'Rina Hartono' })
 	@IsString()
 	@IsNotEmpty()
 	@MaxLength(150)
-	fullName: string;
+	fullName!: string;
 
 	@ApiProperty({ example: 'Backend Engineer' })
 	@IsString()
 	@IsNotEmpty()
 	@MaxLength(100)
-	position: string;
+	position!: string;
 
 	@ApiProperty({ example: 'Engineering' })
 	@IsString()
 	@IsNotEmpty()
 	@MaxLength(100)
-	department: string;
+	department!: string;
 
 	@ApiProperty({ example: 'rina@dexa.com' })
 	@IsEmail()
 	@MaxLength(150)
-	email: string;
+	email!: string;
 
 	@ApiProperty({ example: '081200000005' })
 	@IsString()
 	@IsNotEmpty()
 	@Length(6, 20)
-	phone: string;
+	phone!: string;
 
 	@ApiProperty({ example: 'Employee123', minLength: 6 })
 	@IsString()
 	@MinLength(6)
-	initialPassword: string;
+	initialPassword!: string;
 }
